@@ -1,4 +1,4 @@
-# Natta (mobile)
+# NATTA Application (fullstack)
 
 Aplicativo **multiplataforma** (iOS, Android e Web) focado em apoio à **jornada profissional** e organização: acompanhamento de **candidaturas**, espaços para **currículo**, **simulador de entrevistas**, **calendário**, ferramentas de escrita/design, notificações e perfil — com backend integrado para autenticação e APIs tipadas quando configurado.
 
