@@ -130,6 +130,22 @@ pnpm test         # Vitest
 | `lib/` | Cliente tRPC, tema, utilitários |
 | `shared/` | Constantes e tipos compartilhados |
 | `hooks/` | Hooks React (ex.: autenticação) |
+| `.github/workflows/` | GitHub Actions: `feature.yml`, `staging.yml`, `production.yml` (stack **pnpm**) |
+| `memory.md` | KPIs de produto (startup, Home, taxa de erro) e notas de instrumentação |
+
+---
+
+## CI/CD (GitHub Actions)
+
+Workflows na pasta **`.github/workflows/`**, usando **pnpm** (`pnpm install --frozen-lockfile`, `pnpm run build`, `pnpm run lint`, testes e auditoria conforme cada arquivo).
+
+| Workflow | Quando roda | Observação |
+|----------|----------------|-------------|
+| **`feature.yml`** | Push e PR em branches `feat/**` | Quality + criação automática de PR para `staging` (em push). |
+| **`staging.yml`** | Push em `staging` ou `feat/**`; PR para `staging` | Quality + `create-pr` em push; job **Deploy Vercel (staging)** está **desligado** (`if: false`) até vocês reativarem. |
+| **`production.yml`** | Push em `main` | Quality estrita; job **Deploy Vercel (production)** está **desligado** (`if: false`) até reativar. |
+
+Para ligar o deploy na Vercel depois: remova ou ajuste o `if: false` nos jobs de deploy e configure os secrets **`VERCEL_TOKEN`**, **`VERCEL_ORG_ID`**, **`VERCEL_PROJECT_ID`** no repositório (e URLs reais nos `environment.url`).
 
 ---
 
