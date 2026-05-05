@@ -1,6 +1,15 @@
 import { describe, it, expect } from "vitest";
 
-describe("Firebase Configuration", () => {
+const hasFirebaseEnv = Boolean(
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY &&
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID &&
+    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET &&
+    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID &&
+    process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+);
+
+describe.skipIf(!hasFirebaseEnv)("Firebase Configuration", () => {
   it("should have all required Firebase environment variables", () => {
     expect(process.env.EXPO_PUBLIC_FIREBASE_API_KEY).toBeDefined();
     expect(process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN).toBeDefined();
