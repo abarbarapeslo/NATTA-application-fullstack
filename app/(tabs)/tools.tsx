@@ -75,7 +75,7 @@ export default function ToolsScreen() {
         <View className="px-6 mb-6">
           <Text className="text-3xl font-bold text-foreground mb-2">Tools</Text>
           <Text className="text-base text-muted">
-            Access all AIpply tools to enhance your application process
+            Access all Natta tools to enhance your application process
           </Text>
         </View>
 

@@ -7,6 +7,9 @@ import { Tag } from "@/components/ui/tag";
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const PROFILE_STORAGE_KEY = "@natta_profile";
+const LEGACY_PROFILE_STORAGE_KEY = "@aipply_profile";
+
 type Education = {
   id: number;
   institution: string;
@@ -114,7 +117,9 @@ export default function ProfileScreen() {
 
   const loadProfile = async () => {
     try {
-      const savedProfile = await AsyncStorage.getItem("@aipply_profile");
+      const savedProfile =
+        (await AsyncStorage.getItem(PROFILE_STORAGE_KEY)) ??
+        (await AsyncStorage.getItem(LEGACY_PROFILE_STORAGE_KEY));
       if (savedProfile) {
         setProfile(JSON.parse(savedProfile));
       }
@@ -125,7 +130,8 @@ export default function ProfileScreen() {
 
   const saveProfile = async (updatedProfile: typeof profile) => {
     try {
-      await AsyncStorage.setItem("@aipply_profile", JSON.stringify(updatedProfile));
+      await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
+      await AsyncStorage.removeItem(LEGACY_PROFILE_STORAGE_KEY);
       setProfile(updatedProfile);
     } catch (error) {
       console.error("Error saving profile:", error);

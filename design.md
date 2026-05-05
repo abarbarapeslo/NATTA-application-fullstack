@@ -1,8 +1,8 @@
-# AIpply Mobile App - Design Document
+# Natta Mobile App - Design Document
 
 ## Visão Geral
 
-O **AIpply** é uma plataforma mobile completa que transforma candidatos estressados em competidores de alto nível, oferecendo ferramentas de IA para todo o ciclo de candidatura, desde a descoberta de oportunidades até a submissão final.
+O **Natta** é uma plataforma mobile completa que transforma candidatos estressados em competidores de alto nível, oferecendo ferramentas de IA para todo o ciclo de candidatura, desde a descoberta de oportunidades até a submissão final.
 
 ## Design System
 
@@ -30,7 +30,7 @@ O **AIpply** é uma plataforma mobile completa que transforma candidatos estress
 **Propósito**: Primeira impressão e login
 
 **Conteúdo**:
-- Logo AIpply centralizado
+- Logo Natta centralizado
 - Headline: "Turn stress into success"
 - Subheadline: "Your AI-powered companion from discovery to submission"
 - Ilustração abstrata com formas geométricas em azul neon

@@ -111,7 +111,7 @@ export default function LoginScreen() {
             <Text className="text-base text-muted mt-2 text-center">
               {isSignUp
                 ? "Sign up to start your application journey"
-                : "Sign in to continue to AIpply"}
+                : "Sign in to continue to Natta"}
             </Text>
           </View>
 

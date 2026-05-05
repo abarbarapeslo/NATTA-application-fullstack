@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
+import Constants from "expo-constants";
 
 export default function HelpSupportScreen() {
   const colors = useColors();
@@ -17,11 +18,11 @@ export default function HelpSupportScreen() {
       [
         {
           text: "Email",
-          onPress: () => Linking.openURL("mailto:support@aipply.tech"),
+          onPress: () => Linking.openURL("mailto:support@natta.app"),
         },
         {
           text: "Website",
-          onPress: () => Linking.openURL("https://www.aipply.tech"),
+          onPress: () => Linking.openURL("https://natta.app"),
         },
         { text: "Cancel", style: "cancel" },
       ]
@@ -37,7 +38,7 @@ export default function HelpSupportScreen() {
     {
       id: 2,
       question: "How does the conflict detection work?",
-      answer: "When you add start and end dates to your applications, AIpply automatically detects if two accepted opportunities overlap in time. Check the Calendar to see any conflicts and their severity.",
+      answer: "When you add start and end dates to your applications, Natta automatically detects if two accepted opportunities overlap in time. Check the Calendar to see any conflicts and their severity.",
     },
     {
       id: 3,
@@ -71,17 +72,17 @@ export default function HelpSupportScreen() {
     },
     {
       id: 2,
-      title: "Visit AIpply Website",
-      description: "Learn more about AIpply",
+      title: "Visit Natta Website",
+      description: "Learn more about Natta",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("https://www.aipply.tech"),
+      onPress: () => Linking.openURL("https://natta.app"),
     },
     {
       id: 3,
       title: "Report a Bug",
       description: "Help us improve the app",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("mailto:support@aipply.tech?subject=Bug Report"),
+      onPress: () => Linking.openURL("mailto:support@natta.app?subject=Bug Report"),
     },
   ];
 
@@ -161,7 +162,9 @@ export default function HelpSupportScreen() {
 
         {/* App Version */}
         <View className="px-6 mt-6">
-          <Text className="text-center text-sm text-muted">AIpply Mobile v1.9.1</Text>
+          <Text className="text-center text-sm text-muted">
+            Natta Mobile v{Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
         </View>
       </ScrollView>
     </ScreenContainer>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-describe("AIpply - Applications Feature", () => {
+describe("Natta - Applications Feature", () => {
   it("should have dashboard with application creation functionality", () => {
     const fs = require("fs");
     const path = require("path");

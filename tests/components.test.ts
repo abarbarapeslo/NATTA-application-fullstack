@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-describe("AIpply Mobile App - Component Tests", () => {
+describe("Natta Mobile App - Component Tests", () => {
   it("should have proper theme colors configured", () => {
     const { themeColors } = require("../theme.config.js");
     
@@ -18,8 +18,8 @@ describe("AIpply Mobile App - Component Tests", () => {
       "utf-8"
     );
     
-    expect(appConfigContent).toContain('appName: "AIpply"');
-    expect(appConfigContent).toContain('appSlug: "aipply-mobile"');
+    expect(appConfigContent).toContain('appName: "Natta"');
+    expect(appConfigContent).toContain('appSlug: "natta-mobile"');
   });
 
   it("should have all required icon mappings", () => {

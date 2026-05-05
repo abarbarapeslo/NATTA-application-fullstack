@@ -11,7 +11,7 @@ export default function MoreScreen() {
   const colors = useColors();
 
   const handleAbout = async () => {
-    const url = "https://www.aipply.tech";
+    const url = "https://natta.app";
     const supported = await Linking.canOpenURL(url);
     
     if (supported) {
@@ -68,8 +68,8 @@ export default function MoreScreen() {
     },
     {
       id: 4,
-      title: "About AIpply",
-      description: "Learn more about AIpply",
+      title: "About Natta",
+      description: "Learn more about Natta",
       icon: "ellipsis.circle",
       onPress: handleAbout,
     },
@@ -81,7 +81,7 @@ export default function MoreScreen() {
         {/* Header */}
         <View className="px-6 py-4">
           <Text className="text-2xl font-bold text-foreground">More</Text>
-          <Text className="text-sm text-muted mt-1">Explore all AIpply features</Text>
+          <Text className="text-sm text-muted mt-1">Explore all Natta features</Text>
         </View>
 
         {/* Menu Items */}

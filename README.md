@@ -2,7 +2,7 @@
 
 Aplicativo **multiplataforma** (iOS, Android e Web) focado em apoio à **jornada profissional** e organização: acompanhamento de **candidaturas**, espaços para **currículo**, **simulador de entrevistas**, **calendário**, ferramentas de escrita/design, notificações e perfil — com backend integrado para autenticação e APIs tipadas quando configurado.
 
-> **Nota de branding:** o arquivo `app.config.ts` ainda pode exibir o nome herdado do template (ex.: “AIpply”). Para publicar como **Natta**, ajuste `appName`, `appSlug` e os identificadores de bundle conforme sua conta de desenvolvedor.
+> **Branding:** o app está configurado como **Natta** em `app.config.ts` (`appName`, `appSlug`, bundle id, scheme). Ajuste só se o registo nas lojas ou domínio forem diferentes.
 
 ---
 

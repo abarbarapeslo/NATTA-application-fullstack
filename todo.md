@@ -1,8 +1,8 @@
-# AIpply Mobile App - TODO
+# Natta Mobile App - TODO
 
 ## Setup e Configuração
 - [x] Atualizar tema e cores no theme.config.js (azul neon #0066FF como primary)
-- [x] Configurar app.config.ts com nome e logo do AIpply
+- [x] Configurar app.config.ts com nome e logo do Natta
 - [x] Criar componentes base reutilizáveis (Button, Card, Input, Tag)
 - [x] Configurar navegação bottom tabs (Home, Search, Profile, Calendar, More)
 
@@ -55,7 +55,7 @@
 - [x] Redesenhar AI Search como catálogo de oportunidades com filtros avançados
 - [x] Adicionar botão de AI Chat para buscas específicas na tela Search
 - [x] Criar modal de chat IA para interação conversacional
-- [x] Substituir texto "AIpply" nos headers por logo em todas as telas
+- [x] Substituir texto da marca nos headers por logo em todas as telas
 - [x] Reposicionar logo para canto esquerdo dos headers em tamanho proporcional
 - [x] Criar página Tools separada das configurações
 - [x] Mover Calendar para dentro de Tools
@@ -91,7 +91,7 @@
 - [x] Adicionar seção de conflitos detectados na tela do calendário
 - [x] Mostrar quais aplicações estão em conflito e o período de sobreposição
 - [x] Ativar botões de configurações na página More
-- [x] Fazer botão "About AIpply" abrir site aipply.tech
+- [x] Fazer botão About abrir o site da marca (natta.app)
 - [x] Criar tela funcional de Account Settings
 - [x] Criar tela funcional de Notifications Settings
 - [x] Criar tela funcional de Help & Support
