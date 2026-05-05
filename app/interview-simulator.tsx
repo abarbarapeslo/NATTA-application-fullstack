@@ -8,9 +8,9 @@ import { useState } from "react";
 
 export default function InterviewSimulatorScreen() {
   const colors = useColors();
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion] = useState(1);
   const totalQuestions = 5;
-  const [timeLeft, setTimeLeft] = useState("02:30");
+  const [timeLeft] = useState("02:30");
 
   const question =
     "Tell me about a time when you faced a significant challenge in a team project. How did you handle it, and what was the outcome?";

@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TextInput, TouchableOpacity, Modal } from "react-native";
+import { ScrollView, Text, View, TextInput, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";

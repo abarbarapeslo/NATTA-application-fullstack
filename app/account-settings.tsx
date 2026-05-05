@@ -43,7 +43,7 @@ export default function AccountSettingsScreen() {
       setShowEmailModal(false);
       setNewEmail("");
       Alert.alert("Success", "Email updated successfully");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update email");
     }
   };
@@ -54,7 +54,7 @@ export default function AccountSettingsScreen() {
       setLanguage(lang);
       setShowLanguageModal(false);
       Alert.alert("Success", `Language changed to ${lang}`);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update language");
     }
   };

@@ -9,7 +9,7 @@ import { useState } from "react";
 export default function VideoSpaceScreen() {
   const colors = useColors();
   const [isRecording, setIsRecording] = useState(false);
-  const [timer, setTimer] = useState("00:00");
+  const [timer] = useState("00:00");
 
   const yourVideos = [
     {
@@ -64,8 +64,7 @@ export default function VideoSpaceScreen() {
               </TouchableOpacity>
             </View>
             <Text className="text-sm text-muted leading-5">
-              Hello, my name is Giulia and I'm excited to introduce myself. I'm a passionate
-              business student with a strong interest in technology and innovation...
+              {`Hello, my name is Giulia and I'm excited to introduce myself. I'm a passionate business student with a strong interest in technology and innovation...`}
             </Text>
           </Card>
         </View>

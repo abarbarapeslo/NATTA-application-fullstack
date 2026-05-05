@@ -26,25 +26,26 @@ export default function WritingHubScreen() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Load documents from storage
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem("writingDocuments");
       if (stored) {
         const docs = JSON.parse(stored);
         setDocuments(docs);
-        if (docs.length > 0 && !selectedDoc) {
-          setSelectedDoc(docs[0]);
-        }
+        setSelectedDoc((prev) => {
+          if (docs.length > 0 && !prev) return docs[0];
+          return prev;
+        });
       }
     } catch (error) {
       console.error("Error loading documents:", error);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadDocuments();
-    }, [])
+      void loadDocuments();
+    }, [loadDocuments])
   );
 
   const createNewDocument = async () => {
@@ -186,7 +187,7 @@ export default function WritingHubScreen() {
             {filteredDocuments.length === 0 ? (
               <Card>
                 <Text className="text-center text-muted">
-                  No documents found matching "{searchQuery}"
+                  No documents found matching &quot;{searchQuery}&quot;
                 </Text>
               </Card>
             ) : (

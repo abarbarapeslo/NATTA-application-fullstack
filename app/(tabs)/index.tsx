@@ -3,10 +3,9 @@ import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback } from "react";
 
 type Application = {
   id: string;
@@ -186,7 +185,7 @@ export default function HomeScreen() {
             <Card className="p-6 items-center">
               <IconSymbol name="doc" size={48} color={colors.muted} />
               <Text className="text-muted mt-3 text-center">
-                No applications yet. Tap "+ New" to create your first application.
+                No applications yet. Tap &quot;+ New&quot; to create your first application.
               </Text>
             </Card>
           ) : (
