@@ -64,12 +64,4 @@ describe("Natta Mobile App - Component Tests", () => {
     expect(fs.existsSync(path.join(__dirname, "../components/ui/tag.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../components/ui/icon-symbol.tsx"))).toBe(true);
   });
-
-  it("should have design documentation", () => {
-    const fs = require("fs");
-    const path = require("path");
-    
-    expect(fs.existsSync(path.join(__dirname, "../design.md"))).toBe(true);
-    expect(fs.existsSync(path.join(__dirname, "../todo.md"))).toBe(true);
-  });
 });

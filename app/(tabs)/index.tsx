@@ -135,7 +135,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <Image
-            source={require("@/assets/images/logo.png")}
+            source={require("@/assets/images/natta_icon.png")}
             style={{ width: 120, height: 32 }}
             resizeMode="contain"
           />

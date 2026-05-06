@@ -13,7 +13,7 @@ const env = {
   // App branding — Expo name / URL slug (expo.dev & eas.json)
   appName: "Natta",
   appSlug: "natta-mobile",
-  // S3 URL of the app logo (optional). Empty = ./assets/images/icon.png
+  // S3 URL of the app logo (optional). Empty = use ./assets/images/natta_icon.png in UI
   logoUrl: "",
   // Deep links & OAuth redirects: natta://… — must be unique on the device if multiple apps use schemes
   scheme: "natta",
@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   slug: env.appSlug,
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/images/icon.png",
+  icon: "./assets/images/natta_app_icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
@@ -44,9 +44,7 @@ const config: ExpoConfig = {
     versionCode: 1,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
+      foregroundImage: "./assets/images/natta_icon.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
@@ -69,7 +67,7 @@ const config: ExpoConfig = {
   web: {
     bundler: "metro",
     output: "static",
-    favicon: "./assets/images/favicon.png",
+    favicon: "./assets/images/natta_app_icon.png",
   },
   plugins: [
     "expo-router",
@@ -89,10 +87,10 @@ const config: ExpoConfig = {
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-icon.png",
+        image: "./assets/images/natta_app_icon.png",
         imageWidth: 200,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#E6F4FE",
         dark: {
           backgroundColor: "#000000",
         },

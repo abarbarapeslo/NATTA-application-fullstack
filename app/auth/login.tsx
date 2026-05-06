@@ -101,7 +101,7 @@ export default function LoginScreen() {
           {/* Logo and Header */}
           <View className="items-center pt-12 pb-8 px-6">
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/natta_icon.png")}
               style={{ width: 150, height: 42 }}
               resizeMode="contain"
             />

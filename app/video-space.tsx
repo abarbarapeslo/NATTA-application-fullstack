@@ -36,7 +36,7 @@ export default function VideoSpaceScreen() {
               <IconSymbol name="xmark" size={24} color={colors.foreground} />
             </TouchableOpacity>
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/natta_icon.png")}
               style={{ width: 100, height: 28 }}
               resizeMode="contain"
             />
