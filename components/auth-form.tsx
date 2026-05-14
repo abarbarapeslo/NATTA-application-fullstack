@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { FontAwesome } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -19,9 +20,45 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
 } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function friendlyAuthError(code: string | undefined, fallback: string): string {
+  switch (code) {
+    case "auth/invalid-email":
+      return "The email address is not valid.";
+    case "auth/user-disabled":
+      return "This account has been disabled. Please contact support.";
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+      return "Incorrect email or password.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a moment and try again.";
+    case "auth/email-already-in-use":
+      return "An account with this email already exists.";
+    case "auth/weak-password":
+      return "Password is too weak. Try a longer one.";
+    case "auth/network-request-failed":
+      return "Network error. Check your connection and try again.";
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "Sign-in was cancelled.";
+    case "auth/popup-blocked":
+      return "Your browser blocked the sign-in popup. Allow popups and try again.";
+    case "auth/account-exists-with-different-credential":
+      return "An account already exists with this email using a different sign-in method.";
+    default:
+      return fallback || "Something went wrong. Please try again.";
+  }
+}
 
 function notify(title: string, message: string) {
   if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -35,12 +72,19 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const colors = useColors();
   const isSignUp = mode === "signup";
   const [email, setEmail] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
+
+  const emailInvalid = emailTouched && email.length > 0 && !EMAIL_REGEX.test(email);
 
   const ensureConfigured = () => {
     if (!isFirebaseConfigured()) {
@@ -58,6 +102,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       notify("Error", "Please fill in all fields");
       return;
     }
+    if (!EMAIL_REGEX.test(email)) {
+      notify("Error", "Please enter a valid email address");
+      return;
+    }
     if (!ensureConfigured()) return;
 
     setLoading(true);
@@ -65,7 +113,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
       router.replace("/(tabs)");
     } catch (error: any) {
-      notify("Sign In Failed", error.message);
+      notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
     } finally {
       setLoading(false);
     }
@@ -74,6 +122,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword || !name) {
       notify("Error", "Please fill in all fields");
+      return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      notify("Error", "Please enter a valid email address");
       return;
     }
     if (password !== confirmPassword) {
@@ -102,9 +154,18 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         password,
       );
       await updateProfile(cred.user, { displayName: name });
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (verifyErr) {
+        console.warn("[auth] failed to send verification email", verifyErr);
+      }
+      notify(
+        "Verify your email",
+        `We sent a verification link to ${email}. Please check your inbox to confirm your account.`,
+      );
       router.replace("/(tabs)");
     } catch (error: any) {
-      notify("Sign Up Failed", error.message);
+      notify("Sign Up Failed", friendlyAuthError(error?.code, error?.message));
     } finally {
       setLoading(false);
     }
@@ -120,9 +181,38 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       await sendPasswordResetEmail(getFirebaseAuth(), email);
       notify("Success", "Password reset email sent! Check your inbox.");
     } catch (error: any) {
-      notify("Error", error.message);
+      notify("Error", friendlyAuthError(error?.code, error?.message));
     }
   };
+
+  const handleSocialSignIn = async (providerKind: "google" | "apple") => {
+    if (!ensureConfigured()) return;
+
+    if (Platform.OS !== "web") {
+      notify(
+        "Coming soon",
+        `${providerKind === "google" ? "Google" : "Apple"} sign-in on mobile requires native setup. Use email for now.`,
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const provider =
+        providerKind === "google"
+          ? new GoogleAuthProvider()
+          : new OAuthProvider("apple.com");
+      await signInWithPopup(getFirebaseAuth(), provider);
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submit = isSignUp ? handleSignUp : handleSignIn;
+  const emailBorder = emailInvalid ? "border-red-500" : "border-border";
 
   return (
     <ScreenContainer className="bg-background">
@@ -164,6 +254,9 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                     value={name}
                     onChangeText={setName}
                     autoCapitalize="words"
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    blurOnSubmit={false}
                   />
                 </View>
               )}
@@ -173,15 +266,25 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                   Email
                 </Text>
                 <TextInput
-                  className="bg-surface text-foreground px-4 py-3 rounded-lg border border-border"
+                  ref={emailRef}
+                  className={`bg-surface text-foreground px-4 py-3 rounded-lg border ${emailBorder}`}
                   placeholder="Enter your email"
                   placeholderTextColor={colors.muted}
                   value={email}
                   onChangeText={setEmail}
+                  onBlur={() => setEmailTouched(true)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
+                {emailInvalid && (
+                  <Text className="text-xs text-red-500 mt-2">
+                    Please enter a valid email address.
+                  </Text>
+                )}
               </View>
 
               <View className="mb-4">
@@ -190,6 +293,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                 </Text>
                 <View className="relative">
                   <TextInput
+                    ref={passwordRef}
                     className="bg-surface text-foreground px-4 py-3 pr-12 rounded-lg border border-border"
                     placeholder="Enter your password"
                     placeholderTextColor={colors.muted}
@@ -197,6 +301,15 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
+                    returnKeyType={isSignUp ? "next" : "done"}
+                    onSubmitEditing={() => {
+                      if (isSignUp) {
+                        confirmRef.current?.focus();
+                      } else {
+                        submit();
+                      }
+                    }}
+                    blurOnSubmit={!isSignUp}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword((v) => !v)}
@@ -230,6 +343,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                   </Text>
                   <View className="relative">
                     <TextInput
+                      ref={confirmRef}
                       className="bg-surface text-foreground px-4 py-3 pr-12 rounded-lg border border-border"
                       placeholder="Confirm your password"
                       placeholderTextColor={colors.muted}
@@ -237,6 +351,8 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                       onChangeText={setConfirmPassword}
                       secureTextEntry={!showConfirmPassword}
                       autoCapitalize="none"
+                      returnKeyType="done"
+                      onSubmitEditing={submit}
                     />
                     <TouchableOpacity
                       onPress={() => setShowConfirmPassword((v) => !v)}
@@ -268,13 +384,63 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               )}
 
               <TouchableOpacity
-                onPress={isSignUp ? handleSignUp : handleSignIn}
+                onPress={submit}
                 disabled={loading}
-                className="bg-primary py-4 rounded-lg items-center mb-4"
+                className="bg-primary py-4 rounded-lg items-center mb-3"
                 style={{ opacity: loading ? 0.6 : 1 }}
               >
                 <Text className="text-white font-bold text-base">
                   {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+                </Text>
+              </TouchableOpacity>
+
+              {isSignUp && (
+                <Text className="text-xs text-muted text-center mb-3 leading-relaxed">
+                  By signing up, you agree to our{" "}
+                  <Text
+                    className="text-primary font-semibold"
+                    onPress={() => router.push("/legal/terms" as any)}
+                  >
+                    Terms of Service
+                  </Text>{" "}
+                  and{" "}
+                  <Text
+                    className="text-primary font-semibold"
+                    onPress={() => router.push("/legal/privacy" as any)}
+                  >
+                    Privacy Policy
+                  </Text>
+                  .
+                </Text>
+              )}
+
+              <View className="flex-row items-center my-2">
+                <View className="flex-1 h-px bg-border" />
+                <Text className="text-muted text-xs mx-3">OR</Text>
+                <View className="flex-1 h-px bg-border" />
+              </View>
+
+              <TouchableOpacity
+                onPress={() => handleSocialSignIn("google")}
+                disabled={loading}
+                className="flex-row items-center justify-center py-3 rounded-lg border border-border mb-3"
+                style={{ opacity: loading ? 0.6 : 1 }}
+              >
+                <FontAwesome name="google" size={18} color={colors.foreground} />
+                <Text className="text-foreground font-semibold ml-3">
+                  Continue with Google
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleSocialSignIn("apple")}
+                disabled={loading}
+                className="flex-row items-center justify-center py-3 rounded-lg bg-black mb-4"
+                style={{ opacity: loading ? 0.6 : 1 }}
+              >
+                <FontAwesome name="apple" size={20} color="#fff" />
+                <Text className="text-white font-semibold ml-3">
+                  Continue with Apple
                 </Text>
               </TouchableOpacity>
 

@@ -40,8 +40,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     const inAuthGroup = (segments[0] as string) === "auth";
+    const inPublicGroup = (segments[0] as string) === "legal";
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !inPublicGroup) {
       // Redirect to login if not authenticated
       router.replace("/auth/login" as any);
     } else if (user && inAuthGroup) {
