@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { router, useSegments } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { useColors } from "@/hooks/use-colors";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -12,12 +12,28 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const colors = useColors();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
-      setUser(user);
+    if (!isFirebaseConfigured()) {
+      console.warn(
+        "[AuthGuard] Firebase env vars missing — skipping auth. Set EXPO_PUBLIC_FIREBASE_* in .env to enable login.",
+      );
+      setUser(null);
       setLoading(false);
-    });
+      return;
+    }
 
-    return unsubscribe;
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+        setUser(user);
+        setLoading(false);
+      });
+    } catch (err) {
+      console.error("[AuthGuard] Firebase auth init failed:", err);
+      setUser(null);
+      setLoading(false);
+    }
+
+    return () => unsubscribe?.();
   }, []);
 
   useEffect(() => {

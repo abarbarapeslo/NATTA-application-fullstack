@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, Text, View, TouchableOpacity, Linking, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Linking, Modal } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -10,24 +10,10 @@ import Constants from "expo-constants";
 export default function HelpSupportScreen() {
   const colors = useColors();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [contactVisible, setContactVisible] = useState(false);
+  const supportEmail = "contato@natta.pro";
 
-  const handleContactSupport = () => {
-    Alert.alert(
-      "Contact Support",
-      "Choose how you want to contact us:",
-      [
-        {
-          text: "Email",
-          onPress: () => Linking.openURL("mailto:support@natta.app"),
-        },
-        {
-          text: "Website",
-          onPress: () => Linking.openURL("https://natta.app"),
-        },
-        { text: "Cancel", style: "cancel" },
-      ]
-    );
-  };
+  const handleContactSupport = () => setContactVisible(true);
 
   const faqItems = [
     {
@@ -75,14 +61,14 @@ export default function HelpSupportScreen() {
       title: "Visit Natta Website",
       description: "Learn more about Natta",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("https://natta.app"),
+      onPress: () => Linking.openURL("https://natta.pro/"),
     },
     {
       id: 3,
       title: "Report a Bug",
       description: "Help us improve the app",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("mailto:support@natta.app?subject=Bug Report"),
+      onPress: () => Linking.openURL("mailto:contato@natta.pro?subject=Bug Report"),
     },
   ];
 
@@ -167,6 +153,68 @@ export default function HelpSupportScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={contactVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setContactVisible(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setContactVisible(false)}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 24,
+          }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View
+              style={{
+                backgroundColor: colors.background,
+                borderRadius: 16,
+                padding: 24,
+                width: 320,
+                maxWidth: "100%",
+              }}
+            >
+              <Text className="text-xl font-bold text-foreground mb-2">
+                Contact Support
+              </Text>
+              <Text className="text-sm text-muted mb-4">
+                Send us an email and we&apos;ll get back to you as soon as possible.
+              </Text>
+
+              <View className="bg-surface border border-border rounded-lg px-4 py-3 mb-4">
+                <Text className="text-base font-semibold text-foreground text-center">
+                  {supportEmail}
+                </Text>
+              </View>
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => setContactVisible(false)}
+                  className="flex-1 py-3 rounded-lg items-center border border-border"
+                >
+                  <Text className="text-foreground font-semibold">Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Linking.openURL(`mailto:${supportEmail}`);
+                    setContactVisible(false);
+                  }}
+                  className="flex-1 bg-primary py-3 rounded-lg items-center"
+                >
+                  <Text className="text-white font-semibold">Send Email</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </ScreenContainer>
   );
 }

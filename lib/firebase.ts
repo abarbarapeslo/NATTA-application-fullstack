@@ -17,6 +17,10 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+export function isFirebaseConfigured(): boolean {
+  return Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+}
+
 let appInstance: FirebaseApp | null = null;
 
 export function getFirebaseApp(): FirebaseApp {

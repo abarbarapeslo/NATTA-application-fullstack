@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, TouchableOpacity, Linking, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Linking, Alert, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -20,28 +20,39 @@ export default function MoreScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await signOut(getFirebaseAuth());
-              router.replace("/auth/login" as any);
-            } catch (error: any) {
-              Alert.alert("Error", error.message);
-            }
-          },
-        },
-      ]
-    );
+    const doSignOut = async () => {
+      try {
+        await signOut(getFirebaseAuth());
+      } catch (error: any) {
+        // Fallback: clear Firebase persistence manually so the user
+        // is effectively logged out even if the auth module failed to register.
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          try {
+            Object.keys(window.localStorage)
+              .filter((k) => k.startsWith("firebase:"))
+              .forEach((k) => window.localStorage.removeItem(k));
+          } catch {}
+        }
+      } finally {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.location.href = "/auth/login";
+        } else {
+          router.replace("/auth/login" as any);
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("Are you sure you want to sign out?")) {
+        doSignOut();
+      }
+      return;
+    }
+
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: doSignOut },
+    ]);
   };
 
   const menuItems = [
