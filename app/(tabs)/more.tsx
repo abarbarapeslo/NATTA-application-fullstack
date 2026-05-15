@@ -23,7 +23,7 @@ export default function MoreScreen() {
     const doSignOut = async () => {
       try {
         await signOut(getFirebaseAuth());
-      } catch (error: any) {
+      } catch {
         // Fallback: clear Firebase persistence manually so the user
         // is effectively logged out even if the auth module failed to register.
         if (Platform.OS === "web" && typeof window !== "undefined") {

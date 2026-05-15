@@ -55,7 +55,9 @@
     "expo-video": "~3.0.15",
     "expo-web-browser": "~15.0.10",
     "express": "^4.22.1",
+    "express-rate-limit": "^8.5.2",
     "firebase": "^12.9.0",
+    "helmet": "^8.1.0",
     "jose": "6.1.0",
     "mysql2": "^3.16.0",
     "nativewind": "^4.2.1",
@@ -98,6 +100,7 @@
   "pnpm": {
     "overrides": {
       "axios": ">=1.13.5",
+      "fast-uri": ">=3.1.2",
       "protobufjs": ">=7.5.5",
       "tar": ">=7.5.11",
       "undici": ">=6.24.0",
