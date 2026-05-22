@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
-import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
 
 export default function MoreScreen() {
@@ -22,17 +21,9 @@ export default function MoreScreen() {
   const handleSignOut = () => {
     const doSignOut = async () => {
       try {
-        await signOut(getFirebaseAuth());
+        await getFirebaseAuth().signOut();
       } catch {
-        // Fallback: clear Firebase persistence manually so the user
-        // is effectively logged out even if the auth module failed to register.
-        if (Platform.OS === "web" && typeof window !== "undefined") {
-          try {
-            Object.keys(window.localStorage)
-              .filter((k) => k.startsWith("firebase:"))
-              .forEach((k) => window.localStorage.removeItem(k));
-          } catch {}
-        }
+        // best-effort: even if signOut throws, fall through to redirect
       } finally {
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.location.href = "/auth/login";

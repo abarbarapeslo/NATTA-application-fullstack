@@ -35,6 +35,7 @@ const config: ExpoConfig = {
     buildNumber: "1",
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    googleServicesFile: "./GoogleService-Info.plist",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
@@ -49,6 +50,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
+    googleServicesFile: "./google-services.json",
     permissions: ["POST_NOTIFICATIONS"],
     intentFilters: [
       {
@@ -71,6 +73,8 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "@react-native-firebase/app",
+    "@react-native-firebase/auth",
     [
       "expo-audio",
       {
@@ -103,13 +107,28 @@ const config: ExpoConfig = {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
         },
+        ios: {
+          useFrameworks: "static",
+        },
       },
     ],
   ],
+  updates: {
+    url: "https://u.expo.dev/177b4125-5f3a-4f8b-b4f7-d27b1e26fd88",
+  },
+  runtimeVersion: {
+    policy: "appVersion",
+  },
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
   },
+  extra: {
+    eas: {
+      projectId: "177b4125-5f3a-4f8b-b4f7-d27b1e26fd88",
+    },
+  },
+  owner: "abarbaranatta",
 };
 
 export default config;

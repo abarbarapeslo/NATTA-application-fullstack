@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { router, useSegments } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { useColors } from "@/hooks/use-colors";
 
@@ -23,7 +22,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     let unsubscribe: (() => void) | undefined;
     try {
-      unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
+      unsubscribe = getFirebaseAuth().onAuthStateChanged((user) => {
         setUser(user);
         setLoading(false);
       });

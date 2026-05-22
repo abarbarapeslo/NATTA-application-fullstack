@@ -16,16 +16,6 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  sendEmailVerification,
-  updateProfile,
-  signInWithPopup,
-  GoogleAuthProvider,
-  OAuthProvider,
-} from "firebase/auth";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -110,7 +100,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      await getFirebaseAuth().signInWithEmailAndPassword(email, password);
       router.replace("/(tabs)");
     } catch (error: any) {
       notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
@@ -148,14 +138,13 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
     setLoading(true);
     try {
-      const cred = await createUserWithEmailAndPassword(
-        getFirebaseAuth(),
+      const cred = await getFirebaseAuth().createUserWithEmailAndPassword(
         email,
         password,
       );
-      await updateProfile(cred.user, { displayName: name });
+      await cred.user.updateProfile({ displayName: name });
       try {
-        await sendEmailVerification(cred.user);
+        await cred.user.sendEmailVerification();
       } catch (verifyErr) {
         console.warn("[auth] failed to send verification email", verifyErr);
       }
@@ -178,7 +167,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     }
     if (!ensureConfigured()) return;
     try {
-      await sendPasswordResetEmail(getFirebaseAuth(), email);
+      await getFirebaseAuth().sendPasswordResetEmail(email);
       notify("Success", "Password reset email sent! Check your inbox.");
     } catch (error: any) {
       notify("Error", friendlyAuthError(error?.code, error?.message));
@@ -186,29 +175,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   };
 
   const handleSocialSignIn = async (providerKind: "google" | "apple") => {
-    if (!ensureConfigured()) return;
-
-    if (Platform.OS !== "web") {
-      notify(
-        "Coming soon",
-        `${providerKind === "google" ? "Google" : "Apple"} sign-in on mobile requires native setup. Use email for now.`,
-      );
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const provider =
-        providerKind === "google"
-          ? new GoogleAuthProvider()
-          : new OAuthProvider("apple.com");
-      await signInWithPopup(getFirebaseAuth(), provider);
-      router.replace("/(tabs)");
-    } catch (error: any) {
-      notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
-    } finally {
-      setLoading(false);
-    }
+    notify(
+      "Coming soon",
+      `${providerKind === "google" ? "Google" : "Apple"} sign-in requires native setup. Use email for now.`,
+    );
   };
 
   const submit = isSignUp ? handleSignUp : handleSignIn;
