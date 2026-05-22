@@ -1,12 +1,26 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { Platform } from "react-native";
 import {
   getAuth,
   initializeAuth,
-  getReactNativePersistence,
+  browserLocalPersistence,
+  setPersistence,
   type Auth,
 } from "firebase/auth";
-import { Platform } from "react-native";
+
+// `getReactNativePersistence` is only exported from the RN entry of
+// @firebase/auth (dist/rn). Pull it via require so the web bundle, which does
+// not include it, does not blow up at import time.
+function loadReactNativePersistence(): ((storage: unknown) => unknown) | null {
+  try {
+    const mod = require("firebase/auth") as Record<string, unknown>;
+    const fn = mod.getReactNativePersistence;
+    return typeof fn === "function" ? (fn as (storage: unknown) => unknown) : null;
+  } catch {
+    return null;
+  }
+}
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -39,14 +53,23 @@ function createFirebaseAuth(app: FirebaseApp): Auth {
         "[firebase] getFirebaseAuth() must run in the browser (after mount), not during SSR.",
       );
     }
-    return getAuth(app);
+    const auth = getAuth(app);
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.warn("[firebase] setPersistence failed:", err);
+    });
+    return auth;
   }
 
+  const rnPersistence = loadReactNativePersistence();
   try {
-    return initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } catch {
+    if (rnPersistence) {
+      return initializeAuth(app, {
+        persistence: rnPersistence(AsyncStorage) as any,
+      });
+    }
+    return initializeAuth(app);
+  } catch (err) {
+    console.warn("[firebase] initializeAuth failed, falling back to getAuth", err);
     return getAuth(app);
   }
 }
