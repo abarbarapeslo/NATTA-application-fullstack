@@ -17,6 +17,10 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  signInWithGoogle,
+  GoogleSignInCancelledError,
+} from "@/lib/google-signin";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -174,11 +178,21 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     }
   };
 
-  const handleSocialSignIn = async (providerKind: "google" | "apple") => {
-    notify(
-      "Coming soon",
-      `${providerKind === "google" ? "Google" : "Apple"} sign-in requires native setup. Use email for now.`,
-    );
+  const handleGoogleSignIn = async () => {
+    if (!ensureConfigured()) return;
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      if (error instanceof GoogleSignInCancelledError) {
+        // user closed the picker — no need to show an error toast
+        return;
+      }
+      notify("Google Sign-In Failed", friendlyAuthError(error?.code, error?.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submit = isSignUp ? handleSignUp : handleSignIn;
@@ -391,26 +405,14 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               </View>
 
               <TouchableOpacity
-                onPress={() => handleSocialSignIn("google")}
+                onPress={handleGoogleSignIn}
                 disabled={loading}
-                className="flex-row items-center justify-center py-3 rounded-lg border border-border mb-3"
+                className="flex-row items-center justify-center py-3 rounded-lg border border-border mb-4"
                 style={{ opacity: loading ? 0.6 : 1 }}
               >
                 <FontAwesome name="google" size={18} color={colors.foreground} />
                 <Text className="text-foreground font-semibold ml-3">
                   Continue with Google
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleSocialSignIn("apple")}
-                disabled={loading}
-                className="flex-row items-center justify-center py-3 rounded-lg bg-black mb-4"
-                style={{ opacity: loading ? 0.6 : 1 }}
-              >
-                <FontAwesome name="apple" size={20} color="#fff" />
-                <Text className="text-white font-semibold ml-3">
-                  Continue with Apple
                 </Text>
               </TouchableOpacity>
 

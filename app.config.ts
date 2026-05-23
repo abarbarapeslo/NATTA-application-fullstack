@@ -75,6 +75,24 @@ const config: ExpoConfig = {
     "expo-router",
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
+    "@react-native-firebase/messaging",
+    [
+      "@react-native-google-signin/google-signin",
+    ],
+    [
+      "expo-camera",
+      {
+        cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to record videos.",
+        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone to record videos.",
+        recordAudioAndroid: true,
+      },
+    ],
+    [
+      "expo-document-picker",
+      {
+        iCloudContainerEnvironment: "Production",
+      },
+    ],
     [
       "expo-audio",
       {

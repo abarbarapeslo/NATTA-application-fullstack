@@ -5,6 +5,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { signOutGoogle } from "@/lib/google-signin";
 
 export default function MoreScreen() {
   const colors = useColors();
@@ -24,12 +25,12 @@ export default function MoreScreen() {
         await getFirebaseAuth().signOut();
       } catch {
         // best-effort: even if signOut throws, fall through to redirect
-      } finally {
-        if (Platform.OS === "web" && typeof window !== "undefined") {
-          window.location.href = "/auth/login";
-        } else {
-          router.replace("/auth/login" as any);
-        }
+      }
+      await signOutGoogle();
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      } else {
+        router.replace("/auth/login" as any);
       }
     };
 

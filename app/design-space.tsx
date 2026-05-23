@@ -5,9 +5,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { Tag } from "@/components/ui/tag";
+import { useFirebaseUser, displayNameFromUser } from "@/hooks/use-firebase-user";
 
 export default function DesignSpaceScreen() {
   const colors = useColors();
+  const firebaseUser = useFirebaseUser();
+  const previewName = displayNameFromUser(firebaseUser) || "Your Name";
 
   const templates = [
     { id: 1, name: "Harvard", style: "Classic" },
@@ -64,29 +67,27 @@ export default function DesignSpaceScreen() {
               <View className="w-16 h-16 rounded-full bg-background items-center justify-center mb-2">
                 <IconSymbol name="person.fill" size={32} color={colors.muted} />
               </View>
-              <Text className="text-lg font-bold text-foreground">Giulia Alvares</Text>
-              <Text className="text-sm text-muted">Business Student</Text>
+              <Text className="text-lg font-bold text-foreground">{previewName}</Text>
+              <Text className="text-sm text-muted">Your title</Text>
             </View>
 
             <View className="mb-3">
               <Text className="text-sm font-bold text-foreground mb-1">Education</Text>
               <View className="h-px bg-border mb-2" />
-              <Text className="text-xs text-muted">PUCPR - Business Administration</Text>
+              <Text className="text-xs text-muted">Add your education in Profile</Text>
             </View>
 
             <View className="mb-3">
               <Text className="text-sm font-bold text-foreground mb-1">Experience</Text>
               <View className="h-px bg-border mb-2" />
-              <Text className="text-xs text-muted">Business Strategy Intern</Text>
+              <Text className="text-xs text-muted">Add your experience in Profile</Text>
             </View>
 
             <View>
               <Text className="text-sm font-bold text-foreground mb-1">Skills</Text>
               <View className="h-px bg-border mb-2" />
               <View className="flex-row flex-wrap gap-1">
-                <Tag label="Project Management" />
-                <Tag label="Marketing" />
-                <Tag label="Leadership" />
+                <Tag label="Add skills" />
               </View>
             </View>
           </Card>

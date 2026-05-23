@@ -5,9 +5,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { useState } from "react";
+import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
 
 export default function VideoSpaceScreen() {
   const colors = useColors();
+  const firebaseUser = useFirebaseUser();
+  const firstName = firstNameFromUser(firebaseUser) || "there";
   const [isRecording, setIsRecording] = useState(false);
   const [timer] = useState("00:00");
 
@@ -64,7 +67,7 @@ export default function VideoSpaceScreen() {
               </TouchableOpacity>
             </View>
             <Text className="text-sm text-muted leading-5">
-              {`Hello, my name is Giulia and I'm excited to introduce myself. I'm a passionate business student with a strong interest in technology and innovation...`}
+              {`Hello, my name is ${firstName} and I'm excited to introduce myself. Tap the pencil to write your own teleprompter script...`}
             </Text>
           </Card>
         </View>

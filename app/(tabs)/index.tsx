@@ -3,79 +3,39 @@ import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useState, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
-
-type Application = {
-  id: string;
-  name: string;
-  deadline: string;
-  status: "Draft" | "In Progress" | "Submitted" | "Accepted" | "Rejected";
-  type: string;
-  startDate?: string;
-  endDate?: string;
-};
+import { useState } from "react";
+import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
+import { useApplications } from "@/hooks/use-applications";
+import type { Application, ApplicationStatus } from "@/lib/firestore";
 
 export default function HomeScreen() {
   const colors = useColors();
+  const firebaseUser = useFirebaseUser();
+  const firstName = firstNameFromUser(firebaseUser);
+  const { applications, addApplication, updateApplication } = useApplications();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  
+
   // Form state
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [status, setStatus] = useState<Application["status"]>("Draft");
+  const [status, setStatus] = useState<ApplicationStatus>("Draft");
   const [type, setType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // Load applications from storage
-  const loadApplications = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("applications");
-      if (stored) {
-        setApplications(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error("Error loading applications:", error);
-    }
-  };
-
-  // Load on focus
-  useFocusEffect(
-    useCallback(() => {
-      loadApplications();
-    }, [])
-  );
-
   const saveApplication = async () => {
-    if (!name || !deadline || !type) {
-      return;
-    }
-
-    const newApplication: Application = {
-      id: Date.now().toString(),
+    if (!name || !deadline || !type) return;
+    await addApplication({
       name,
       deadline,
       status,
       type,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
-    };
-
-    const updatedApplications = [...applications, newApplication];
-    setApplications(updatedApplications);
-    
-    try {
-      await AsyncStorage.setItem("applications", JSON.stringify(updatedApplications));
-    } catch (error) {
-      console.error("Error saving application:", error);
-    }
-
-    // Reset form
+    });
     setName("");
     setDeadline("");
     setStatus("Draft");
@@ -90,26 +50,14 @@ export default function HomeScreen() {
     setEditModalVisible(true);
   };
 
-  const updateApplicationStatus = async (newStatus: Application["status"]) => {
-    if (!selectedApp) return;
-
-    const updatedApplications = applications.map(app => 
-      app.id === selectedApp.id ? { ...app, status: newStatus } : app
-    );
-    
-    setApplications(updatedApplications);
-    
-    try {
-      await AsyncStorage.setItem("applications", JSON.stringify(updatedApplications));
-    } catch (error) {
-      console.error("Error updating application:", error);
-    }
-
+  const updateApplicationStatus = async (newStatus: ApplicationStatus) => {
+    if (!selectedApp?.id) return;
+    await updateApplication(selectedApp.id, { status: newStatus });
     setEditModalVisible(false);
     setSelectedApp(null);
   };
 
-  const getStatusColor = (status: Application["status"]) => {
+  const getStatusColor = (status: ApplicationStatus) => {
     switch (status) {
       case "Draft":
         return colors.muted;
@@ -146,7 +94,9 @@ export default function HomeScreen() {
 
         {/* Welcome */}
         <View className="px-6 mb-6">
-          <Text className="text-3xl font-bold text-foreground">Welcome back, Giulia</Text>
+          <Text className="text-3xl font-bold text-foreground">
+            {firstName ? `Welcome back, ${firstName}` : "Welcome back"}
+          </Text>
         </View>
 
         {/* Metrics */}

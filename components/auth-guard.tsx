@@ -3,8 +3,10 @@ import { View, ActivityIndicator } from "react-native";
 import { router, useSegments } from "expo-router";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { useColors } from "@/hooks/use-colors";
+import { usePushRegistration } from "@/hooks/use-push-registration";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  usePushRegistration();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const segments = useSegments();

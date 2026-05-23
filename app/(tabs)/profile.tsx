@@ -4,84 +4,21 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { Tag } from "@/components/ui/tag";
-import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const PROFILE_STORAGE_KEY = "@natta_profile";
-const LEGACY_PROFILE_STORAGE_KEY = "@aipply_profile";
-
-type Education = {
-  id: number;
-  institution: string;
-  degree: string;
-  period: string;
-};
-
-type Experience = {
-  id: number;
-  title: string;
-  company: string;
-  period: string;
-  description: string;
-};
-
-type Project = {
-  id: number;
-  title: string;
-  description: string;
-  tags: string[];
-};
+import { useState } from "react";
+import { useUserProfile } from "@/hooks/use-user-profile";
 
 export default function ProfileScreen() {
   const colors = useColors();
-  
-  // Profile data state
-  const [profile, setProfile] = useState({
-    name: "Giulia Alvares",
-    title: "Business Student at PUCPR",
-    bio: "Passionate about business strategy and innovation",
-    education: [
-      {
-        id: 1,
-        institution: "PUCPR - Pontifícia Universidade Católica do Paraná",
-        degree: "Bachelor of Business Administration",
-        period: "Jan 2020 - Present",
-      },
-    ] as Education[],
-    experience: [
-      {
-        id: 1,
-        title: "Business Strategy Intern",
-        company: "TechSolutions Inc.",
-        period: "Jun 2022 - Dec 2022",
-        description:
-          "Business strategy intern at TechSolutions Inc. with core responsibilities and financial communications.",
-      },
-    ] as Experience[],
-    projects: [
-      {
-        id: 1,
-        title: "Market Analysis Report",
-        description: "Market analysis report share data analysis or conceptng to analysis and market research.",
-        tags: ["Data Analysis", "Market Research", "Excel"],
-      },
-      {
-        id: 2,
-        title: "Startup Pitch Deck",
-        description: "Startup pitch deck share presentation and analyst financial analysis and strategic modeling.",
-        tags: ["Presentation", "Financial Modeling", "Strategy"],
-      },
-    ] as Project[],
-    skills: [
-      "Project Management",
-      "Digital Marketing",
-      "Team Leadership",
-      "Financial Analysis",
-      "Communication",
-      "Strategic Planning",
-      "SQL",
-    ],
-  });
+  const {
+    profile,
+    education,
+    experience,
+    projects,
+    saveProfile,
+    addEducation,
+    addExperience,
+    addProject,
+  } = useUserProfile();
 
   // Modal states
   const [showEditBasic, setShowEditBasic] = useState(false);
@@ -94,49 +31,21 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editBio, setEditBio] = useState("");
-  
+
   const [editEduInstitution, setEditEduInstitution] = useState("");
   const [editEduDegree, setEditEduDegree] = useState("");
   const [editEduPeriod, setEditEduPeriod] = useState("");
-  
+
   const [editExpTitle, setEditExpTitle] = useState("");
   const [editExpCompany, setEditExpCompany] = useState("");
   const [editExpPeriod, setEditExpPeriod] = useState("");
   const [editExpDescription, setEditExpDescription] = useState("");
-  
+
   const [editProjTitle, setEditProjTitle] = useState("");
   const [editProjDescription, setEditProjDescription] = useState("");
   const [editProjTags, setEditProjTags] = useState("");
-  
+
   const [editSkillsText, setEditSkillsText] = useState("");
-
-  // Load profile from AsyncStorage
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const savedProfile =
-        (await AsyncStorage.getItem(PROFILE_STORAGE_KEY)) ??
-        (await AsyncStorage.getItem(LEGACY_PROFILE_STORAGE_KEY));
-      if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
-      }
-    } catch (error) {
-      console.error("Error loading profile:", error);
-    }
-  };
-
-  const saveProfile = async (updatedProfile: typeof profile) => {
-    try {
-      await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
-      await AsyncStorage.removeItem(LEGACY_PROFILE_STORAGE_KEY);
-      setProfile(updatedProfile);
-    } catch (error) {
-      console.error("Error saving profile:", error);
-    }
-  };
 
   const handleEditBasicInfo = () => {
     setEditName(profile.name);
@@ -145,9 +54,8 @@ export default function ProfileScreen() {
     setShowEditBasic(true);
   };
 
-  const handleSaveBasicInfo = () => {
-    const updated = { ...profile, name: editName, title: editTitle, bio: editBio };
-    saveProfile(updated);
+  const handleSaveBasicInfo = async () => {
+    await saveProfile({ name: editName, title: editTitle, bio: editBio });
     setShowEditBasic(false);
   };
 
@@ -158,15 +66,12 @@ export default function ProfileScreen() {
     setShowEditEducation(true);
   };
 
-  const handleSaveEducation = () => {
-    const newEducation: Education = {
-      id: Date.now(),
+  const handleSaveEducation = async () => {
+    await addEducation({
       institution: editEduInstitution,
       degree: editEduDegree,
       period: editEduPeriod,
-    };
-    const updated = { ...profile, education: [...profile.education, newEducation] };
-    saveProfile(updated);
+    });
     setShowEditEducation(false);
   };
 
@@ -178,16 +83,13 @@ export default function ProfileScreen() {
     setShowEditExperience(true);
   };
 
-  const handleSaveExperience = () => {
-    const newExperience: Experience = {
-      id: Date.now(),
+  const handleSaveExperience = async () => {
+    await addExperience({
       title: editExpTitle,
       company: editExpCompany,
       period: editExpPeriod,
       description: editExpDescription,
-    };
-    const updated = { ...profile, experience: [...profile.experience, newExperience] };
-    saveProfile(updated);
+    });
     setShowEditExperience(false);
   };
 
@@ -198,15 +100,12 @@ export default function ProfileScreen() {
     setShowEditProject(true);
   };
 
-  const handleSaveProject = () => {
-    const newProject: Project = {
-      id: Date.now(),
+  const handleSaveProject = async () => {
+    await addProject({
       title: editProjTitle,
       description: editProjDescription,
-      tags: editProjTags.split(",").map((t) => t.trim()),
-    };
-    const updated = { ...profile, projects: [...profile.projects, newProject] };
-    saveProfile(updated);
+      tags: editProjTags.split(",").map((t) => t.trim()).filter((t) => t),
+    });
     setShowEditProject(false);
   };
 
@@ -215,10 +114,9 @@ export default function ProfileScreen() {
     setShowEditSkills(true);
   };
 
-  const handleSaveSkills = () => {
+  const handleSaveSkills = async () => {
     const newSkills = editSkillsText.split(",").map((s) => s.trim()).filter((s) => s);
-    const updated = { ...profile, skills: newSkills };
-    saveProfile(updated);
+    await saveProfile({ skills: newSkills });
     setShowEditSkills(false);
   };
 
@@ -256,7 +154,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.education.map((edu) => (
+            {education.map((edu) => (
               <Card key={edu.id} className="mb-3 p-4">
                 <Text className="text-base font-semibold text-foreground">{edu.institution}</Text>
                 <Text className="text-sm text-muted mt-1">{edu.degree}</Text>
@@ -273,7 +171,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.experience.map((exp) => (
+            {experience.map((exp) => (
               <Card key={exp.id} className="mb-3 p-4">
                 <Text className="text-base font-semibold text-foreground">{exp.title}</Text>
                 <Text className="text-sm text-muted mt-1">{exp.company}</Text>
@@ -291,7 +189,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.projects.map((proj) => (
+            {projects.map((proj) => (
               <Card key={proj.id} className="mb-3 p-4">
                 <Text className="text-base font-semibold text-foreground">{proj.title}</Text>
                 <Text className="text-sm text-foreground mt-2">{proj.description}</Text>

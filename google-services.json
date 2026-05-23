@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1002701205197-chnaiiil5opd7q3ec0eckks9982qipi7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.natta.app",
+            "certificate_hash": "d6f761fea7405a75fbcbe2b18530addd26d4f7ed"
+          }
+        },
+        {
           "client_id": "1002701205197-i2n4rtjeg69p633bqg4s1stfc9h9uj4p.apps.googleusercontent.com",
           "client_type": 3
         }
