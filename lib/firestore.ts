@@ -70,5 +70,16 @@ export function projectsCol(uid: string) {
 export function applicationsCol(uid: string) {
   return userDoc(uid).collection("applications");
 }
+export function draftsCol(uid: string) {
+  return userDoc(uid).collection("drafts");
+}
+
+export type Draft = {
+  id?: string;
+  title: string;
+  content: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
 
 export const serverTimestamp = firestore.FieldValue.serverTimestamp;

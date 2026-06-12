@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getFirebaseAuth, type FirebaseUser } from "@/lib/firebase";
+import { telemetry } from "@/lib/telemetry";
 
 export function useFirebaseUser(): FirebaseUser | null {
   const [user, setUser] = useState<FirebaseUser | null>(
@@ -7,7 +8,10 @@ export function useFirebaseUser(): FirebaseUser | null {
   );
 
   useEffect(() => {
-    return getFirebaseAuth().onAuthStateChanged((next) => setUser(next));
+    return getFirebaseAuth().onAuthStateChanged((next) => {
+      setUser(next);
+      telemetry.identify(next?.uid ?? null, next?.email ?? null);
+    });
   }, []);
 
   return user;

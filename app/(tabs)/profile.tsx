@@ -4,8 +4,9 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { Tag } from "@/components/ui/tag";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { telemetry } from "@/lib/telemetry";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -26,9 +27,9 @@ export default function ProfileScreen() {
   const [showEditExperience, setShowEditExperience] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [showEditSkills, setShowEditSkills] = useState(false);
+  const [showEditInterests, setShowEditInterests] = useState(false);
 
   // Edit form states
-  const [editName, setEditName] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editBio, setEditBio] = useState("");
 
@@ -46,17 +47,26 @@ export default function ProfileScreen() {
   const [editProjTags, setEditProjTags] = useState("");
 
   const [editSkillsText, setEditSkillsText] = useState("");
+  const [editInterestsText, setEditInterestsText] = useState("");
+
+  useEffect(() => {
+    telemetry.screen("profile");
+  }, []);
 
   const handleEditBasicInfo = () => {
-    setEditName(profile.name);
     setEditTitle(profile.title);
     setEditBio(profile.bio);
     setShowEditBasic(true);
   };
 
   const handleSaveBasicInfo = async () => {
-    await saveProfile({ name: editName, title: editTitle, bio: editBio });
-    setShowEditBasic(false);
+    try {
+      await saveProfile({ title: editTitle, bio: editBio });
+      setShowEditBasic(false);
+    } catch {
+      // Bio save (NATTA backend) failed — leave the modal open so the
+      // user can retry. Title (Firestore) save already succeeded.
+    }
   };
 
   const handleAddEducation = () => {
@@ -118,6 +128,24 @@ export default function ProfileScreen() {
     const newSkills = editSkillsText.split(",").map((s) => s.trim()).filter((s) => s);
     await saveProfile({ skills: newSkills });
     setShowEditSkills(false);
+  };
+
+  const handleEditInterests = () => {
+    setEditInterestsText(profile.interests.join(", "));
+    setShowEditInterests(true);
+  };
+
+  const handleSaveInterests = async () => {
+    const newInterests = editInterestsText
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s);
+    try {
+      await saveProfile({ interests: newInterests });
+      setShowEditInterests(false);
+    } catch {
+      // Leave the modal open on backend error so the user can retry.
+    }
   };
 
   return (
@@ -202,7 +230,28 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          {/* Skills Section */}
+          {/* Interests Section (NATTA backend) */}
+          <View>
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-lg font-bold text-foreground">Interests</Text>
+              <TouchableOpacity onPress={handleEditInterests}>
+                <IconSymbol name="pencil" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-row flex-wrap gap-2">
+              {profile.interests.length === 0 ? (
+                <Text className="text-sm text-muted">
+                  Add interests to help match you with opportunities.
+                </Text>
+              ) : (
+                profile.interests.map((interest, idx) => (
+                  <Tag key={`interest-${idx}`} label={interest} />
+                ))
+              )}
+            </View>
+          </View>
+
+          {/* Skills Section (local) */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-lg font-bold text-foreground">Skills</Text>
@@ -227,14 +276,6 @@ export default function ProfileScreen() {
               <Text className="text-lg font-bold text-foreground">Edit Profile</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Name</Text>
-              <TextInput
-                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Your name"
-                placeholderTextColor={colors.muted}
-              />
               <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
@@ -462,6 +503,47 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveSkills}
+              >
+                <Text className="text-surface font-semibold">Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Interests Modal (saved to NATTA backend) */}
+      <Modal visible={showEditInterests} animationType="fade" transparent>
+        <View className="flex-1 bg-black/50 items-center justify-center">
+          <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
+            <View className="px-6 py-4 border-b border-border">
+              <Text className="text-lg font-bold text-foreground">Edit Interests</Text>
+            </View>
+            <ScrollView className="px-6 py-4">
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                Interests (comma separated)
+              </Text>
+              <TextInput
+                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-2"
+                value={editInterestsText}
+                onChangeText={setEditInterestsText}
+                placeholder="Scholarships, Research, Marketing"
+                placeholderTextColor={colors.muted}
+                multiline
+              />
+              <Text className="text-xs text-muted">
+                Used to match you with opportunities on NATTA.
+              </Text>
+            </ScrollView>
+            <View className="flex-row gap-3 px-6 py-4 border-t border-border">
+              <TouchableOpacity
+                className="flex-1 bg-surface rounded-2xl py-3 items-center"
+                onPress={() => setShowEditInterests(false)}
+              >
+                <Text className="text-foreground font-semibold">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 bg-primary rounded-2xl py-3 items-center"
+                onPress={handleSaveInterests}
               >
                 <Text className="text-surface font-semibold">Save</Text>
               </TouchableOpacity>

@@ -21,6 +21,7 @@ import {
   signInWithGoogle,
   GoogleSignInCancelledError,
 } from "@/lib/google-signin";
+import { telemetry } from "@/lib/telemetry";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -105,8 +106,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     setLoading(true);
     try {
       await getFirebaseAuth().signInWithEmailAndPassword(email, password);
+      telemetry.event("login_success", { method: "password" });
       router.replace("/(tabs)");
     } catch (error: any) {
+      telemetry.event("login_failed", { method: "password", code: error?.code ?? "unknown" });
       notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
     } finally {
       setLoading(false);
@@ -152,6 +155,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       } catch (verifyErr) {
         console.warn("[auth] failed to send verification email", verifyErr);
       }
+      telemetry.event("signup_success", { method: "password" });
       notify(
         "Verify your email",
         `We sent a verification link to ${email}. Please check your inbox to confirm your account.`,
@@ -183,12 +187,14 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     setLoading(true);
     try {
       await signInWithGoogle();
+      telemetry.event("login_success", { method: "google" });
       router.replace("/(tabs)");
     } catch (error: any) {
       if (error instanceof GoogleSignInCancelledError) {
-        // user closed the picker — no need to show an error toast
+        telemetry.event("login_cancelled", { method: "google" });
         return;
       }
+      telemetry.event("login_failed", { method: "google", code: error?.code ?? "unknown" });
       notify("Google Sign-In Failed", friendlyAuthError(error?.code, error?.message));
     } finally {
       setLoading(false);

@@ -23,6 +23,7 @@ import {
 } from "expo-camera";
 import * as FileSystem from "expo-file-system/legacy";
 import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
+import { telemetry } from "@/lib/telemetry";
 
 type RecordedVideo = {
   uri: string;
@@ -77,6 +78,7 @@ export default function VideoSpaceScreen() {
   );
 
   useEffect(() => {
+    telemetry.screen("video_space");
     listRecordedVideos().then(setVideos).catch(() => {});
   }, []);
 
@@ -122,6 +124,7 @@ export default function VideoSpaceScreen() {
         await FileSystem.moveAsync({ from: video.uri, to: dest });
         const updated = await listRecordedVideos();
         setVideos(updated);
+        telemetry.event("video_recorded", { duration_seconds: elapsed });
       }
     } catch (err) {
       console.warn("[video] recording failed", err);

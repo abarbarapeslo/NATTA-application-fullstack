@@ -17,7 +17,6 @@ import {
 } from "react-native-safe-area-context";
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
-import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { AuthGuard } from "@/components/auth-guard";
 
@@ -65,8 +64,6 @@ export default function RootLayout() {
         },
       }),
   );
-  const [trpcClient] = useState(() => createTRPCClient());
-
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
@@ -82,21 +79,21 @@ export default function RootLayout() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <AuthGuard>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="auth/login" />
-              <Stack.Screen name="auth/signup" />
-              <Stack.Screen name="legal/terms" />
-              <Stack.Screen name="legal/privacy" />
-              <Stack.Screen name="oauth/callback" />
-            </Stack>
-            <StatusBar style="auto" />
-          </AuthGuard>
-        </QueryClientProvider>
-      </trpc.Provider>
+      <QueryClientProvider client={queryClient}>
+        <AuthGuard>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="auth/signup" />
+            <Stack.Screen name="opportunities" />
+            <Stack.Screen name="saved" />
+            <Stack.Screen name="legal/terms" />
+            <Stack.Screen name="legal/privacy" />
+            <Stack.Screen name="oauth/callback" />
+          </Stack>
+          <StatusBar style="auto" />
+        </AuthGuard>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 

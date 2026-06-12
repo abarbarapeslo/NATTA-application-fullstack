@@ -21,7 +21,7 @@ Por que funciona direto:
 - `uid` do Firebase = `openId` no Postgres → mesma identidade.
 - Routers tRPC disponíveis no site: `system`, `scraper`, `auth`, `opportunities`, `applications`, `savedOpportunities`, `admin`.
 - Health check: `/api/trpc/system.health`.
-- Plano free do Render **hiberna** após inatividade → primeira request após sono é lenta (cold start). Considerar no UX (loading states).
+- Render é **plano pago** (confirmado 2026-05-22) → sem hibernação, sem cold start. Latência baixa o tempo todo. Não precisa UX especial pra "acordar servidor".
 
 **How to apply (próxima leva, sem rebuild — é tudo runtime JS):**
 - Setar `EXPO_PUBLIC_API_BASE_URL` no `.env` do app = URL do serviço Render do site.

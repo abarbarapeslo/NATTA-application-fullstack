@@ -17,6 +17,7 @@ import { router } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import Pdf from "react-native-pdf";
+import { telemetry } from "@/lib/telemetry";
 
 type SavedDoc = {
   uri: string;
@@ -64,6 +65,7 @@ export default function DocumentReaderScreen() {
   const [openDoc, setOpenDoc] = useState<SavedDoc | null>(null);
 
   useEffect(() => {
+    telemetry.screen("document_reader");
     listDocs().then(setDocs).catch(() => {});
   }, []);
 
@@ -84,6 +86,9 @@ export default function DocumentReaderScreen() {
 
       const updated = await listDocs();
       setDocs(updated);
+      telemetry.event("document_opened", {
+        type: asset.name.split(".").pop()?.toLowerCase() ?? "unknown",
+      });
     } catch (err) {
       console.warn("[docs] pick failed", err);
       Alert.alert("Could not open document", "Something went wrong picking the file.");

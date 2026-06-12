@@ -1,70 +1,58 @@
 import { useCallback, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import firestore from "@react-native-firebase/firestore";
-import {
-  applicationsCol,
-  serverTimestamp,
-  type Application,
-} from "@/lib/firestore";
+import { applications as nattaApplications, auth as nattaAuth, NattaApiError } from "@/lib/natta-api";
 import { useFirebaseUser } from "@/hooks/use-firebase-user";
+import type {
+  ApplicationStats,
+  ApplicationStatus,
+  ApplicationWithDetails,
+} from "@/types/natta-router";
 
-const LEGACY_APPLICATIONS_KEY = "@natta_applications";
-const MIGRATION_FLAG = "@natta_applications_migrated_to_firestore";
+type LoadStatus = "idle" | "loading" | "ready" | "error";
 
-async function migrateApplicationsOnce(uid: string) {
-  const flag = `${MIGRATION_FLAG}:${uid}`;
-  if (await AsyncStorage.getItem(flag)) return;
+const emptyStats: ApplicationStats = {
+  total: 0,
+  applied: 0,
+  inProgress: 0,
+  accepted: 0,
+  rejected: 0,
+};
 
-  const raw =
-    (await AsyncStorage.getItem(`${LEGACY_APPLICATIONS_KEY}:${uid}`)) ??
-    (await AsyncStorage.getItem(LEGACY_APPLICATIONS_KEY));
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as Application[];
-      const batch = firestore().batch();
-      for (const app of parsed) {
-        const ref = applicationsCol(uid).doc();
-        batch.set(ref, {
-          name: app.name ?? "",
-          type: app.type ?? "",
-          deadline: app.deadline ?? "",
-          status: app.status ?? "Draft",
-          startDate: app.startDate ?? "",
-          endDate: app.endDate ?? "",
-          createdAt: serverTimestamp(),
-        });
-      }
-      await batch.commit();
-    } catch (err) {
-      console.warn("[applications] migration failed", err);
-    }
-  }
-  await AsyncStorage.setItem(flag, "1");
-}
-
+/**
+ * Reads + writes applications via the NATTA backend (same Postgres the
+ * website uses). Each application is tied to a real `opportunityId` — the
+ * old "create a free-form application" flow is gone, by product decision.
+ */
 export function useApplications() {
   const user = useFirebaseUser();
   const uid = user?.uid ?? null;
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
+  const [stats, setStats] = useState<ApplicationStats>(emptyStats);
+  const [status, setStatus] = useState<LoadStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!uid) {
       setApplications([]);
-      setLoading(false);
+      setStats(emptyStats);
+      setStatus("idle");
       return;
     }
-    setLoading(true);
+    setStatus("loading");
+    setError(null);
     try {
-      await migrateApplicationsOnce(uid);
-      const snap = await applicationsCol(uid).orderBy("deadline").get();
-      setApplications(
-        snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Application, "id">) })),
-      );
+      const [list, statsRes] = await Promise.all([
+        nattaApplications.list(),
+        nattaAuth.applicationStats(),
+      ]);
+      setApplications(list);
+      setStats(statsRes);
+      setStatus("ready");
     } catch (err) {
-      console.warn("[applications] reload failed", err);
-    } finally {
-      setLoading(false);
+      const message =
+        err instanceof NattaApiError ? err.message : "Could not load applications.";
+      setError(message);
+      setStatus("error");
     }
   }, [uid]);
 
@@ -72,44 +60,60 @@ export function useApplications() {
     reload();
   }, [reload]);
 
-  const addApplication = useCallback(
-    async (entry: Omit<Application, "id" | "createdAt">) => {
-      if (!uid) return;
-      const ref = await applicationsCol(uid).add({
-        ...entry,
-        createdAt: serverTimestamp(),
-      });
-      setApplications((prev) => [...prev, { id: ref.id, ...entry }]);
+  const applyToOpportunity = useCallback(
+    async (input: {
+      opportunityId: number;
+      notes?: string;
+      programStartDate?: Date;
+      programEndDate?: Date;
+    }) => {
+      const created = await nattaApplications.create(input);
+      // refresh to pull in `opportunity` details + stats
+      await reload();
+      return created;
     },
-    [uid],
+    [reload],
   );
 
-  const updateApplication = useCallback(
-    async (id: string, patch: Partial<Omit<Application, "id" | "createdAt">>) => {
-      if (!uid) return;
-      await applicationsCol(uid).doc(id).set(patch, { merge: true });
+  const updateStatus = useCallback(
+    async (applicationId: number, newStatus: ApplicationStatus) => {
+      await nattaApplications.updateStatus({ applicationId, status: newStatus });
       setApplications((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+        prev.map((a) => (a.id === applicationId ? { ...a, status: newStatus } : a)),
       );
+      // stats need to update too
+      try {
+        const fresh = await nattaAuth.applicationStats();
+        setStats(fresh);
+      } catch {
+        // best effort
+      }
     },
-    [uid],
+    [],
   );
 
   const removeApplication = useCallback(
-    async (id: string) => {
-      if (!uid) return;
-      await applicationsCol(uid).doc(id).delete();
-      setApplications((prev) => prev.filter((a) => a.id !== id));
+    async (applicationId: number) => {
+      await nattaApplications.delete(applicationId);
+      setApplications((prev) => prev.filter((a) => a.id !== applicationId));
+      try {
+        const fresh = await nattaAuth.applicationStats();
+        setStats(fresh);
+      } catch {
+        // best effort
+      }
     },
-    [uid],
+    [],
   );
 
   return {
     applications,
-    loading,
+    stats,
+    status,
+    error,
     reload,
-    addApplication,
-    updateApplication,
+    applyToOpportunity,
+    updateStatus,
     removeApplication,
   };
 }
