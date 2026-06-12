@@ -1,14 +1,24 @@
-import messaging from "@react-native-firebase/messaging";
-
 /**
  * Background / quit-state notification handler. Must be registered at the
  * very top of the JS entry (imported from `app/_layout.tsx`) so RN Firebase
- * picks it up before any push arrives. Keep this file side-effect only — do
- * not export anything you need to call from elsewhere.
+ * picks it up before any push arrives.
+ *
+ * Defensive: if the messaging native module isn't present (older APK,
+ * misconfig, etc.) we must NEVER throw at module-load time — that would
+ * crash the app before React Native even mounts, before Crashlytics can
+ * report anything. Hence the require + try/catch instead of a top-level
+ * import.
  */
-messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-  console.log("[push] background message", remoteMessage?.data);
-  // Intentionally minimal: actual display of background notifications is
-  // handled by the system using the `notification` payload that the backend
-  // sends. Use this hook only for silent / data-only payloads.
-});
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const messaging = require("@react-native-firebase/messaging").default;
+  messaging().setBackgroundMessageHandler(async (remoteMessage: unknown) => {
+    try {
+      console.log("[push] background message", remoteMessage);
+    } catch {
+      // swallow
+    }
+  });
+} catch (err) {
+  console.warn("[push] could not register background handler", err);
+}

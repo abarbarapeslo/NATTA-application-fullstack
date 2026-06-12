@@ -3,6 +3,7 @@ import {
   Text,
   View,
   TouchableOpacity,
+  TextInput,
   Image,
   ActivityIndicator,
   RefreshControl,
@@ -14,16 +15,22 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { OpportunityCard } from "@/components/opportunity-card";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
-import { useCallback, useEffect } from "react";
-import { useSavedOpportunities } from "@/hooks/use-opportunities";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOpportunities } from "@/hooks/use-opportunities";
 import { telemetry } from "@/lib/telemetry";
 
-export default function SavedScreen() {
+export default function OpportunitiesScreen() {
   const colors = useColors();
-  const { saved, status, refreshing, reload, refresh } = useSavedOpportunities();
+  const [search, setSearch] = useState("");
+  const filters = useMemo(
+    () => (search.trim() ? { search: search.trim() } : undefined),
+    [search],
+  );
+  const { opportunities, status, refreshing, error, reload, refresh } =
+    useOpportunities(filters);
 
   useEffect(() => {
-    telemetry.screen("saved");
+    telemetry.screen("opportunities");
   }, []);
 
   useFocusEffect(
@@ -60,28 +67,44 @@ export default function SavedScreen() {
         </View>
 
         <View className="px-6 mb-4">
-          <Text className="text-3xl font-bold text-foreground mb-2">Saved</Text>
+          <Text className="text-3xl font-bold text-foreground mb-2">Opportunities</Text>
           <Text className="text-base text-muted">
-            Opportunities you bookmarked to apply to later
+            Browse and apply to NATTA opportunities
           </Text>
         </View>
 
+        {/* Search */}
+        <View className="px-6 mb-4">
+          <Card>
+            <View className="flex-row items-center gap-3">
+              <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
+              <TextInput
+                className="flex-1 text-base text-foreground"
+                placeholder="Search opportunities..."
+                placeholderTextColor={colors.muted}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch("")}>
+                  <IconSymbol name="xmark" size={18} color={colors.muted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </Card>
+        </View>
+
+        {/* List */}
         <View className="px-6">
-          {status === "loading" && saved.length === 0 ? (
+          {status === "loading" && opportunities.length === 0 ? (
             <View className="py-12 items-center">
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text className="text-muted mt-3">Loading saved opportunities...</Text>
+              <Text className="text-muted mt-3">Loading opportunities...</Text>
             </View>
           ) : status === "error" ? (
             <Card className="p-6 items-center">
-              <IconSymbol
-                name="exclamationmark.triangle"
-                size={32}
-                color={colors.error}
-              />
-              <Text className="text-foreground mt-3 text-center">
-                Could not load saved opportunities.
-              </Text>
+              <IconSymbol name="exclamationmark.triangle" size={32} color={colors.error} />
+              <Text className="text-foreground mt-3 text-center">{error}</Text>
               <TouchableOpacity
                 className="mt-4 bg-primary rounded-full px-5 py-2"
                 onPress={reload}
@@ -89,39 +112,21 @@ export default function SavedScreen() {
                 <Text className="text-surface font-semibold">Try again</Text>
               </TouchableOpacity>
             </Card>
-          ) : saved.length === 0 ? (
+          ) : opportunities.length === 0 ? (
             <Card className="p-6 items-center">
-              <IconSymbol name="bookmark" size={40} color={colors.muted} />
+              <IconSymbol name="doc" size={40} color={colors.muted} />
               <Text className="text-muted mt-3 text-center">
-                No saved opportunities yet.
+                No opportunities found.
               </Text>
-              <TouchableOpacity
-                className="mt-4 bg-primary rounded-full px-5 py-2"
-                onPress={() => router.push("/(tabs)/search" as any)}
-              >
-                <Text className="text-surface font-semibold">Browse opportunities</Text>
-              </TouchableOpacity>
             </Card>
           ) : (
-            saved.map((item) => {
-              const opp = item.opportunity;
-              if (!opp) {
-                return (
-                  <Card key={item.id} className="mb-3 p-4">
-                    <Text className="text-muted">
-                      Opportunity #{item.opportunityId} (details unavailable)
-                    </Text>
-                  </Card>
-                );
-              }
-              return (
-                <OpportunityCard
-                  key={item.id}
-                  opportunity={opp}
-                  onPress={() => router.push(`/opportunities/${opp.id}` as any)}
-                />
-              );
-            })
+            opportunities.map((opp) => (
+              <OpportunityCard
+                key={opp.id}
+                opportunity={opp}
+                onPress={() => router.push(`/opportunities/${opp.id}` as any)}
+              />
+            ))
           )}
         </View>
       </ScrollView>

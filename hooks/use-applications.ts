@@ -29,32 +29,42 @@ export function useApplications() {
   const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
   const [stats, setStats] = useState<ApplicationStats>(emptyStats);
   const [status, setStatus] = useState<LoadStatus>("idle");
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    if (!uid) {
-      setApplications([]);
-      setStats(emptyStats);
-      setStatus("idle");
-      return;
-    }
-    setStatus("loading");
-    setError(null);
-    try {
-      const [list, statsRes] = await Promise.all([
-        nattaApplications.list(),
-        nattaAuth.applicationStats(),
-      ]);
-      setApplications(list);
-      setStats(statsRes);
-      setStatus("ready");
-    } catch (err) {
-      const message =
-        err instanceof NattaApiError ? err.message : "Could not load applications.";
-      setError(message);
-      setStatus("error");
-    }
-  }, [uid]);
+  const load = useCallback(
+    async (mode: "initial" | "refresh") => {
+      if (!uid) {
+        setApplications([]);
+        setStats(emptyStats);
+        setStatus("idle");
+        return;
+      }
+      if (mode === "initial") setStatus("loading");
+      else setRefreshing(true);
+      setError(null);
+      try {
+        const [list, statsRes] = await Promise.all([
+          nattaApplications.list(),
+          nattaAuth.applicationStats(),
+        ]);
+        setApplications(list);
+        setStats(statsRes);
+        setStatus("ready");
+      } catch (err) {
+        const message =
+          err instanceof NattaApiError ? err.message : "Could not load applications.";
+        setError(message);
+        setStatus("error");
+      } finally {
+        if (mode === "refresh") setRefreshing(false);
+      }
+    },
+    [uid],
+  );
+
+  const reload = useCallback(() => load("initial"), [load]);
+  const refresh = useCallback(() => load("refresh"), [load]);
 
   useEffect(() => {
     reload();
@@ -110,8 +120,10 @@ export function useApplications() {
     applications,
     stats,
     status,
+    refreshing,
     error,
     reload,
+    refresh,
     applyToOpportunity,
     updateStatus,
     removeApplication,

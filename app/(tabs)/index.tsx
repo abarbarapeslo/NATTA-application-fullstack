@@ -7,12 +7,14 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
 import { useApplications } from "@/hooks/use-applications";
@@ -35,8 +37,10 @@ export default function HomeScreen() {
     applications,
     stats,
     status,
+    refreshing,
     error,
     reload,
+    refresh,
     updateStatus,
     removeApplication,
   } = useApplications();
@@ -47,6 +51,12 @@ export default function HomeScreen() {
   useEffect(() => {
     telemetry.screen("home");
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const openEdit = (app: ApplicationWithDetails) => {
     setSelectedApp(app);
@@ -104,7 +114,17 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer className="bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <Image
@@ -154,7 +174,7 @@ export default function HomeScreen() {
             <Text className="text-xl font-bold text-foreground">Your Applications</Text>
             <TouchableOpacity
               className="bg-primary rounded-full px-4 py-2"
-              onPress={() => router.push("/opportunities" as any)}
+              onPress={() => router.push("/(tabs)/search" as any)}
             >
               <Text className="text-surface font-semibold text-sm">
                 + Browse opportunities
@@ -247,10 +267,21 @@ export default function HomeScreen() {
                   {selectedApp.opportunity.title}
                 </Text>
                 {selectedApp.opportunity.organization && (
-                  <Text className="text-sm text-muted">
+                  <Text className="text-sm text-muted mb-2">
                     {selectedApp.opportunity.organization}
                   </Text>
                 )}
+                <TouchableOpacity
+                  onPress={() => {
+                    const id = selectedApp.opportunity.id;
+                    setEditOpen(false);
+                    router.push(`/opportunities/${id}` as any);
+                  }}
+                >
+                  <Text className="text-primary text-sm font-semibold">
+                    View opportunity →
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 

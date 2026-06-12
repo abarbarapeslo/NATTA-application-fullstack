@@ -1,10 +1,30 @@
-import {
-  GoogleSignin,
-  statusCodes,
-  isErrorWithCode,
-  isSuccessResponse,
-} from "@react-native-google-signin/google-signin";
-import auth from "@react-native-firebase/auth";
+/**
+ * Google Sign-In bridge. Uses lazy `require` so that if the native module
+ * isn't available (e.g. running JS on a build that wasn't compiled with the
+ * google-signin native code), importing this file at startup doesn't crash
+ * the entire app. Errors surface at the point the user actually presses
+ * "Continue with Google" instead.
+ */
+type GoogleSignInModule = typeof import("@react-native-google-signin/google-signin");
+type AuthModule = typeof import("@react-native-firebase/auth").default;
+
+function loadGoogleSignin(): GoogleSignInModule | null {
+  try {
+    return require("@react-native-google-signin/google-signin");
+  } catch (err) {
+    console.warn("[google-signin] native module unavailable", err);
+    return null;
+  }
+}
+
+function loadAuth(): AuthModule | null {
+  try {
+    return require("@react-native-firebase/auth").default;
+  } catch (err) {
+    console.warn("[google-signin] firebase auth unavailable", err);
+    return null;
+  }
+}
 
 // Web client ID from Firebase Console → Authentication → Sign-in method → Google.
 // Required so the Google Sign-In SDK can ask Google for an `idToken` that
@@ -14,9 +34,9 @@ const WEB_CLIENT_ID =
 
 let configured = false;
 
-function ensureConfigured() {
+function ensureConfigured(gs: GoogleSignInModule) {
   if (configured) return;
-  GoogleSignin.configure({
+  gs.GoogleSignin.configure({
     webClientId: WEB_CLIENT_ID,
     offlineAccess: false,
   });
@@ -31,11 +51,16 @@ export class GoogleSignInCancelledError extends Error {
 }
 
 export async function signInWithGoogle() {
-  ensureConfigured();
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  const gs = loadGoogleSignin();
+  const auth = loadAuth();
+  if (!gs || !auth) {
+    throw new Error("Google sign-in is not available on this build.");
+  }
+  ensureConfigured(gs);
+  await gs.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-  const result = await GoogleSignin.signIn();
-  if (!isSuccessResponse(result)) {
+  const result = await gs.GoogleSignin.signIn();
+  if (!gs.isSuccessResponse(result)) {
     throw new GoogleSignInCancelledError();
   }
   const idToken = result.data.idToken;
@@ -47,12 +72,12 @@ export async function signInWithGoogle() {
 }
 
 export async function signOutGoogle() {
-  ensureConfigured();
+  const gs = loadGoogleSignin();
+  if (!gs) return;
+  ensureConfigured(gs);
   try {
-    await GoogleSignin.signOut();
+    await gs.GoogleSignin.signOut();
   } catch {
     // best effort; user may not have a Google session at all
   }
 }
-
-export { statusCodes, isErrorWithCode };

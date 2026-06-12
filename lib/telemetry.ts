@@ -1,62 +1,85 @@
-import analytics from "@react-native-firebase/analytics";
-import crashlytics from "@react-native-firebase/crashlytics";
-
 /**
- * Thin telemetry wrapper around RN Firebase Analytics + Crashlytics.
- * All calls are best-effort — never throw, never block the UI.
+ * Thin telemetry wrapper around RN Firebase Analytics.
  *
- * Crashlytics: collects native + JS crashes. Surfaces in Firebase console
- * under Crashlytics. Auto-enabled in release builds; in dev builds we keep
- * it on too so we catch issues during the 60-user MVP.
+ * Crashlytics was REMOVED in 2026-05 because @react-native-firebase/crashlytics
+ * 23.x ships without the Expo config plugin (only 24.x+ has it), and adding
+ * it to the app without the corresponding Gradle plugin makes the APK crash
+ * at startup with `IllegalStateException: The Crashlytics build ID is missing`.
+ * Re-add once the whole @react-native-firebase suite can move to 24.x.
  *
- * Analytics: lightweight events to answer "what do testers actually use?"
- * Avoid PII — the user is already identified by Firebase Auth uid, which
- * we set via `setUserId`.
+ * Resilient by design: if the analytics native module isn't present, every
+ * call silently no-ops. Telemetry must never break the UI.
  */
+
+type AnalyticsModule = ReturnType<
+  typeof import("@react-native-firebase/analytics").default
+>;
+
+let analyticsInstance: AnalyticsModule | null = null;
+let analyticsAvailable: boolean | null = null;
+
+function tryGet<T>(label: string, load: () => T): T | null {
+  try {
+    return load();
+  } catch (err) {
+    console.warn(`[telemetry] ${label} native module unavailable — skipping.`, err);
+    return null;
+  }
+}
+
+function getAnalytics(): AnalyticsModule | null {
+  if (analyticsAvailable === false) return null;
+  if (analyticsInstance) return analyticsInstance;
+  const inst = tryGet("Analytics", () => {
+    const mod = require("@react-native-firebase/analytics").default;
+    return mod() as AnalyticsModule;
+  });
+  if (inst) {
+    analyticsInstance = inst;
+    analyticsAvailable = true;
+  } else {
+    analyticsAvailable = false;
+  }
+  return analyticsInstance;
+}
 
 function safe(fn: () => Promise<unknown> | unknown) {
   try {
     const r = fn();
     if (r && typeof (r as Promise<unknown>).catch === "function") {
-      (r as Promise<unknown>).catch((err) =>
-        console.warn("[telemetry] op failed", err),
-      );
+      (r as Promise<unknown>).catch(() => {
+        // swallow — telemetry must never break the UI
+      });
     }
-  } catch (err) {
-    console.warn("[telemetry] op failed", err);
+  } catch {
+    // swallow
   }
 }
 
 export const telemetry = {
   /** Call once after Firebase Auth resolves the current user. */
-  identify(uid: string | null, email?: string | null) {
-    safe(() => analytics().setUserId(uid));
-    safe(() => crashlytics().setUserId(uid ?? ""));
-    if (email) {
-      safe(() => crashlytics().setAttribute("email_domain", email.split("@")[1] ?? ""));
-    }
+  identify(uid: string | null, _email?: string | null) {
+    const a = getAnalytics();
+    if (a) safe(() => a.setUserId(uid));
   },
 
-  /** Record a screen view (Firebase Analytics treats screens as a special event). */
+  /** Record a screen view. */
   screen(name: string) {
-    safe(() =>
-      analytics().logScreenView({ screen_name: name, screen_class: name }),
-    );
-    safe(() => crashlytics().log(`screen:${name}`));
+    const a = getAnalytics();
+    if (a) safe(() => a.logScreenView({ screen_name: name, screen_class: name }));
   },
 
   /** Custom event. Keep names snake_case and < 40 chars. */
   event(name: string, params?: Record<string, string | number | boolean | undefined>) {
-    safe(() => analytics().logEvent(name, params as Record<string, string | number | boolean>));
-    safe(() => crashlytics().log(`event:${name}`));
+    const a = getAnalytics();
+    if (a) safe(() => a.logEvent(name, params as Record<string, string | number | boolean>));
   },
 
-  /** Manually record a non-fatal error (e.g. a caught exception you want to track). */
-  recordError(err: unknown, context?: string) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    if (context) {
-      safe(() => crashlytics().log(`context:${context}`));
-    }
-    safe(() => crashlytics().recordError(error));
+  /**
+   * Manually record a non-fatal error. No-op until Crashlytics is re-added.
+   * Kept in the API so callers don't break.
+   */
+  recordError(_err: unknown, _context?: string) {
+    // intentionally no-op
   },
 };

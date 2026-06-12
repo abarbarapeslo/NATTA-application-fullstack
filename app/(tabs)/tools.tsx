@@ -11,14 +11,6 @@ export default function ToolsScreen() {
   const tools = [
     {
       id: 1,
-      name: "Browse opportunities",
-      description: "Find scholarships, internships and more",
-      icon: "magnifyingglass" as const,
-      route: "/opportunities",
-      color: colors.primary,
-    },
-    {
-      id: 2,
       name: "Saved",
       description: "Opportunities you bookmarked",
       icon: "bookmark" as const,
@@ -26,7 +18,7 @@ export default function ToolsScreen() {
       color: colors.primary,
     },
     {
-      id: 3,
+      id: 2,
       name: "Video Space",
       description: "Record application videos with teleprompter",
       icon: "video" as const,
@@ -34,7 +26,7 @@ export default function ToolsScreen() {
       color: colors.primary,
     },
     {
-      id: 4,
+      id: 3,
       name: "Resume Assistant",
       description: "Write essays, cover letters and CV text with AI",
       icon: "doc" as const,
@@ -42,7 +34,7 @@ export default function ToolsScreen() {
       color: colors.primary,
     },
     {
-      id: 5,
+      id: 4,
       name: "Document Reader",
       description: "Open and read your documents",
       icon: "pencil" as const,
