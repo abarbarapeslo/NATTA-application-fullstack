@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOpportunities } from "@/hooks/use-opportunities";
+import { useApplications } from "@/hooks/use-applications";
 import { telemetry } from "@/lib/telemetry";
 import type { OpportunityFilters } from "@/types/natta-router";
 
@@ -64,18 +65,22 @@ export default function SearchScreen() {
 
   const { opportunities, status, refreshing, error, reload, refresh } =
     useOpportunities(filters);
+  // Used to badge cards as "Applied" when the user already has an
+  // application for that opportunity. Cheap: applications.list is small
+  // and React-state-cached by useApplications.
+  const { applications } = useApplications();
+  const appliedIds = useMemo(
+    () => new Set(applications.map((a) => a.opportunityId)),
+    [applications],
+  );
 
   useEffect(() => {
     telemetry.screen("search");
   }, []);
-
-  // Re-fetch when the tab comes back into focus so testers see new
-  // opportunities without having to kill the app.
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [refresh]),
-  );
+  // Intentionally NO useFocusEffect here: opportunities don't change minute
+  // to minute, so we don't reload every time the tab gets focus. The user
+  // can pull-to-refresh when they want fresh data. New opportunities will
+  // arrive via push notification with a refresh hook in the future.
 
   return (
     <ScreenContainer className="bg-background">
@@ -255,6 +260,7 @@ export default function SearchScreen() {
               <OpportunityCard
                 key={opp.id}
                 opportunity={opp}
+                applied={appliedIds.has(opp.id)}
                 onPress={() => router.push(`/opportunities/${opp.id}` as any)}
               />
             ))

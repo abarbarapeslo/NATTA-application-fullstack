@@ -3,38 +3,32 @@ import { Card } from "@/components/ui/card";
 import { Tag } from "@/components/ui/tag";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import {
+  cardTags,
+  formatDeadline,
+  formatFunding,
+  primaryRegion,
+} from "@/lib/opportunity-format";
 import type { Opportunity } from "@/types/natta-router";
 
-function formatDeadline(d: Date | null): string {
-  if (!d) return "No deadline";
-  try {
-    return new Date(d).toLocaleDateString();
-  } catch {
-    return "—";
-  }
-}
-
-function buildTags(opp: Opportunity): string[] {
-  return [opp.field, opp.stage, opp.mode]
-    .filter((s): s is string => Boolean(s));
-}
-
 /**
- * Visual shape used everywhere we list an opportunity: Search (Discover),
- * Browse Opportunities, Saved. Same component → same look.
- *
- * Tap → opens the detail screen via `onPress`.
- * "View Details" button does the same action so it works as a strong CTA.
+ * Used everywhere we list an opportunity: Search (Discover), Browse, etc.
+ * Tap → opens the detail screen via `onPress`. When `applied` is true,
+ * shows an inline "Applied" badge so users know they already tracked it.
  */
 export function OpportunityCard({
   opportunity,
   onPress,
+  applied = false,
 }: {
   opportunity: Opportunity;
   onPress: () => void;
+  applied?: boolean;
 }) {
   const colors = useColors();
-  const tags = buildTags(opportunity);
+  const tags = cardTags(opportunity);
+  const region = primaryRegion(opportunity);
+  const funding = formatFunding(opportunity);
 
   return (
     <TouchableOpacity className="mb-4" onPress={onPress}>
@@ -44,11 +38,23 @@ export function OpportunityCard({
             <Text className="text-lg font-bold text-foreground mb-1">
               {opportunity.title}
             </Text>
-            {opportunity.organization && (
-              <Text className="text-sm text-muted mb-2">{opportunity.organization}</Text>
+            {opportunity.organizer && (
+              <Text className="text-sm text-muted mb-2">{opportunity.organizer}</Text>
             )}
           </View>
-          {opportunity.type && <Tag label={opportunity.type} variant="primary" />}
+          <View className="items-end gap-1">
+            {opportunity.opportunityType && (
+              <Tag label={opportunity.opportunityType} variant="primary" />
+            )}
+            {applied && (
+              <View className="flex-row items-center gap-1 bg-success/15 px-2 py-1 rounded-full">
+                <IconSymbol name="checkmark" size={12} color={colors.success} />
+                <Text className="text-[10px] font-bold" style={{ color: colors.success }}>
+                  Applied
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View className="flex-row items-center flex-wrap gap-x-4 gap-y-1 mb-3">
@@ -58,14 +64,20 @@ export function OpportunityCard({
               {formatDeadline(opportunity.deadline)}
             </Text>
           </View>
-          {opportunity.region && (
+          {region && (
             <View className="flex-row items-center gap-1">
               <IconSymbol name="magnifyingglass" size={16} color={colors.muted} />
-              <Text className="text-xs text-muted">{opportunity.region}</Text>
+              <Text className="text-xs text-muted">{region}</Text>
             </View>
           )}
-          {opportunity.funding && (
-            <Text className="text-xs font-bold text-primary">{opportunity.funding}</Text>
+          {funding && (
+            <Text
+              className="text-xs font-bold text-primary"
+              numberOfLines={1}
+              style={{ flexShrink: 1 }}
+            >
+              {funding}
+            </Text>
           )}
         </View>
 

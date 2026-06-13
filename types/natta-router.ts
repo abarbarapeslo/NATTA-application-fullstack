@@ -1,12 +1,9 @@
 /**
  * Domain types for the NATTA backend (the website's tRPC API on Render).
  *
- * We don't import the backend's real `AppRouter` because that lives in a
- * different repo. Instead the app uses a **vanilla tRPC client** (see
- * `lib/natta-api.ts`) and we wrap each procedure call in a typed function
- * there. This file only exposes the domain shapes.
- *
- * Keep in sync with the website repo when the backend changes.
+ * Schema matches the real Supabase Postgres tables (verified 2026-05-22 via
+ * information_schema.columns). When the website backend changes, update this
+ * file and the screens that consume it.
  */
 
 export type NattaUser = {
@@ -19,19 +16,37 @@ export type NattaUser = {
   role: "user" | "admin";
 };
 
+/**
+ * `deadline` is stored as a Postgres timestamp BUT the website also displays
+ * non-date deadlines like "Inscrições Contínuas". For now we treat it as
+ * `Date | string | null` and let the formatter decide.
+ *
+ * `regions` and `fields` are `jsonb` arrays of strings.
+ * `opportunityType`, `stage`, `mode`, `funding`, `fee` are Postgres ENUMs.
+ * `applicationLink` is the external URL ("visitar site" button on the web).
+ */
 export type Opportunity = {
   id: number;
   title: string;
   description: string | null;
-  type: string | null;
+  organizer: string | null;
+  deadline: Date | string | null;
+  opportunityType: string | null;
   stage: string | null;
-  region: string | null;
+  regions: string[] | null;
   mode: string | null;
-  field: string | null;
+  fields: string[] | null;
   funding: string | null;
-  deadline: Date | null;
-  url: string | null;
-  organization: string | null;
+  fee: string | null;
+  fundingAmount: string | null;
+  requirements: string | null;
+  benefits: string | null;
+  programStartDate: Date | string | null;
+  programEndDate: Date | string | null;
+  applicationLink: string | null;
+  isFeatured: boolean;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 };
 
 export type ApplicationStatus =
@@ -46,20 +61,34 @@ export type Application = {
   opportunityId: number;
   status: ApplicationStatus;
   notes: string | null;
-  programStartDate: Date | null;
-  programEndDate: Date | null;
-  appliedAt: Date;
+  programStartDate: Date | string | null;
+  programEndDate: Date | string | null;
+  appliedAt: Date | string;
 };
 
-export type ApplicationWithDetails = Application & {
-  opportunity: Opportunity;
+/**
+ * What the backend's `applications.list` actually returns: the application
+ * fields PLUS a flattened subset of the related opportunity (title,
+ * organizer, deadline, opportunityType, and any per-application
+ * customizations like customLink). The full opportunity (description,
+ * requirements, etc.) is fetched on demand via `opportunities.getById`.
+ */
+export type ApplicationListItem = Application & {
+  title: string;
+  organizer: string | null;
+  deadline: Date | string | null;
+  opportunityType: string | null;
+  customLink: string | null;
 };
+
+/** Legacy alias — kept so older imports don't break. */
+export type ApplicationWithDetails = ApplicationListItem;
 
 export type SavedOpportunity = {
   id: number;
   userId: number;
   opportunityId: number;
-  savedAt: Date;
+  savedAt: Date | string;
   opportunity?: Opportunity;
 };
 

@@ -33,7 +33,7 @@ export function useApplications() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (mode: "initial" | "refresh") => {
+    async (mode: "initial" | "refresh" | "silent") => {
       if (!uid) {
         setApplications([]);
         setStats(emptyStats);
@@ -41,7 +41,7 @@ export function useApplications() {
         return;
       }
       if (mode === "initial") setStatus("loading");
-      else setRefreshing(true);
+      else if (mode === "refresh") setRefreshing(true);
       setError(null);
       try {
         const [list, statsRes] = await Promise.all([
@@ -65,6 +65,7 @@ export function useApplications() {
 
   const reload = useCallback(() => load("initial"), [load]);
   const refresh = useCallback(() => load("refresh"), [load]);
+  const silentRefresh = useCallback(() => load("silent"), [load]);
 
   useEffect(() => {
     reload();
@@ -124,6 +125,7 @@ export function useApplications() {
     error,
     reload,
     refresh,
+    silentRefresh,
     applyToOpportunity,
     updateStatus,
     removeApplication,

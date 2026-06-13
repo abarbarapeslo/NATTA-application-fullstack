@@ -86,7 +86,6 @@ export default function RootLayout() {
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/signup" />
             <Stack.Screen name="opportunities" />
-            <Stack.Screen name="saved" />
             <Stack.Screen name="legal/terms" />
             <Stack.Screen name="legal/privacy" />
             <Stack.Screen name="oauth/callback" />

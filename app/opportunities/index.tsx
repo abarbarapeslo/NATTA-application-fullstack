@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOpportunities } from "@/hooks/use-opportunities";
+import { useApplications } from "@/hooks/use-applications";
 import { telemetry } from "@/lib/telemetry";
 
 export default function OpportunitiesScreen() {
@@ -26,18 +27,18 @@ export default function OpportunitiesScreen() {
     () => (search.trim() ? { search: search.trim() } : undefined),
     [search],
   );
+  const { applications } = useApplications();
+  const appliedIds = useMemo(
+    () => new Set(applications.map((a) => a.opportunityId)),
+    [applications],
+  );
   const { opportunities, status, refreshing, error, reload, refresh } =
     useOpportunities(filters);
 
   useEffect(() => {
     telemetry.screen("opportunities");
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [refresh]),
-  );
+  // Intentionally no useFocusEffect: cache + pull-to-refresh only.
 
   return (
     <ScreenContainer className="bg-background">
@@ -124,6 +125,7 @@ export default function OpportunitiesScreen() {
               <OpportunityCard
                 key={opp.id}
                 opportunity={opp}
+                applied={appliedIds.has(opp.id)}
                 onPress={() => router.push(`/opportunities/${opp.id}` as any)}
               />
             ))
