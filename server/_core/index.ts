@@ -105,7 +105,13 @@ async function startServer() {
   );
 
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  // In production (Render / Cloud Run / etc.) the platform assigns the exact
+  // port via PORT and expects the process to bind to it. Only scan for a free
+  // port in local dev, where 3000 may already be in use.
+  const port =
+    process.env.NODE_ENV === "production"
+      ? preferredPort
+      : await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);

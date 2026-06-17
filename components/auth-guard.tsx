@@ -15,7 +15,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isFirebaseConfigured()) {
       console.warn(
-        "[AuthGuard] Firebase env vars missing — skipping auth. Set EXPO_PUBLIC_FIREBASE_* in .env to enable login.",
+        "[AuthGuard] Firebase not initialized — skipping auth. Ensure google-services.json / GoogleService-Info.plist are present and rebuild the native app.",
       );
       setUser(null);
       setLoading(false);

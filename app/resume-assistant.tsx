@@ -18,6 +18,18 @@ import { useEffect, useState } from "react";
 import { useDrafts } from "@/hooks/use-drafts";
 import { telemetry } from "@/lib/telemetry";
 import type { Draft } from "@/lib/firestore";
+import { resumeAi, AiApiError, type ResumeAction } from "@/lib/ai-api";
+
+const AI_ACTIONS: {
+  action: Exclude<ResumeAction, "custom">;
+  label: string;
+  icon: "sparkles" | "doc.text" | "pencil" | "checkmark";
+}[] = [
+  { action: "improve", label: "Improve writing", icon: "sparkles" },
+  { action: "shorten", label: "Make shorter", icon: "doc.text" },
+  { action: "expand", label: "Expand", icon: "pencil" },
+  { action: "fix_grammar", label: "Fix grammar", icon: "checkmark" },
+];
 
 function formatRelative(ts: any): string {
   if (!ts) return "";
@@ -44,16 +56,67 @@ export default function ResumeAssistantScreen() {
   const [newTitle, setNewTitle] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // AI assistant state
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [customInstruction, setCustomInstruction] = useState("");
+  // Snapshot of the content before the last AI edit, so the user can undo.
+  const [preAiContent, setPreAiContent] = useState<string | null>(null);
+
   const openEditor = (draft: Draft) => {
     setEditing(draft);
     setEditorTitle(draft.title);
     setEditorContent(draft.content);
+    setPreAiContent(null);
+    setCustomInstruction("");
   };
 
   const closeEditor = () => {
     setEditing(null);
     setEditorTitle("");
     setEditorContent("");
+    setPreAiContent(null);
+    setCustomInstruction("");
+  };
+
+  const runAi = async (action: ResumeAction) => {
+    if (!editorContent.trim()) {
+      Alert.alert("Nothing to work with", "Write some text first, then ask AI to help.");
+      return;
+    }
+    if (action === "custom" && !customInstruction.trim()) {
+      Alert.alert("Add an instruction", "Tell the AI what you'd like it to do.");
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const result = await resumeAi.improve({
+        content: editorContent,
+        action,
+        instruction: action === "custom" ? customInstruction.trim() : undefined,
+        title: editorTitle.trim() || undefined,
+      });
+      setPreAiContent(editorContent);
+      setEditorContent(result);
+      setAiMenuOpen(false);
+      setCustomInstruction("");
+      telemetry.event("resume_ai_used", { action });
+    } catch (err: any) {
+      const message =
+        err instanceof AiApiError
+          ? err.message
+          : "Could not reach the AI service. Try again.";
+      Alert.alert("AI assistant", message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const undoAi = () => {
+    if (preAiContent === null) return;
+    setEditorContent(preAiContent);
+    setPreAiContent(null);
   };
 
   const saveCurrent = async () => {
@@ -132,12 +195,31 @@ export default function ResumeAssistantScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* AI coming soon banner */}
-        <View className="mx-6 mt-3 mb-2 bg-primary/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
-          <IconSymbol name="sparkles" size={18} color={colors.primary} />
-          <Text className="flex-1 text-xs text-foreground">
-            AI assistance is coming soon. For now, write and save your drafts.
-          </Text>
+        {/* AI assistant bar */}
+        <View className="mx-6 mt-3 mb-2 flex-row items-center gap-3">
+          <TouchableOpacity
+            className="flex-1 bg-primary/10 rounded-2xl px-4 py-3 flex-row items-center justify-center gap-2"
+            onPress={() => setAiMenuOpen(true)}
+            disabled={aiLoading}
+          >
+            {aiLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <IconSymbol name="sparkles" size={18} color={colors.primary} />
+            )}
+            <Text className="text-sm font-semibold text-primary">
+              {aiLoading ? "Thinking..." : "Improve with AI"}
+            </Text>
+          </TouchableOpacity>
+
+          {preAiContent !== null && !aiLoading && (
+            <TouchableOpacity
+              className="bg-surface border border-border rounded-2xl px-4 py-3"
+              onPress={undoAi}
+            >
+              <Text className="text-sm font-semibold text-foreground">Undo</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -168,6 +250,67 @@ export default function ResumeAssistantScreen() {
             </Card>
           </View>
         </ScrollView>
+
+        {/* AI actions menu */}
+        <Modal visible={aiMenuOpen} animationType="fade" transparent>
+          <View className="flex-1 bg-black/50 justify-end">
+            <View className="bg-background rounded-t-3xl pb-8">
+              <View className="px-6 py-4 border-b border-border flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <IconSymbol name="sparkles" size={20} color={colors.primary} />
+                  <Text className="text-lg font-bold text-foreground">
+                    Improve with AI
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setAiMenuOpen(false)}>
+                  <IconSymbol name="xmark" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <View className="px-6 pt-4">
+                {AI_ACTIONS.map((item) => (
+                  <TouchableOpacity
+                    key={item.action}
+                    className="flex-row items-center gap-3 py-3"
+                    onPress={() => runAi(item.action)}
+                    disabled={aiLoading}
+                  >
+                    <View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center">
+                      <IconSymbol name={item.icon} size={20} color={colors.primary} />
+                    </View>
+                    <Text className="text-base font-semibold text-foreground">
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                <View className="mt-3 pt-4 border-t border-border">
+                  <Text className="text-sm font-semibold text-foreground mb-2">
+                    Custom instruction
+                  </Text>
+                  <TextInput
+                    className="bg-surface rounded-2xl px-4 py-3 text-foreground"
+                    value={customInstruction}
+                    onChangeText={setCustomInstruction}
+                    placeholder="e.g. Rewrite for a marketing role, keep it under 3 lines"
+                    placeholderTextColor={colors.muted}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    className="bg-primary rounded-2xl py-3 items-center mt-3 flex-row justify-center gap-2"
+                    onPress={() => runAi("custom")}
+                    disabled={aiLoading}
+                  >
+                    {aiLoading && (
+                      <ActivityIndicator size="small" color={colors.surface} />
+                    )}
+                    <Text className="text-surface font-bold">Apply</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScreenContainer>
     );
   }
@@ -199,15 +342,15 @@ export default function ResumeAssistantScreen() {
           </Text>
         </View>
 
-        {/* AI coming soon banner */}
+        {/* AI assistant banner */}
         <View className="mx-6 mb-4 bg-primary/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
           <IconSymbol name="sparkles" size={20} color={colors.primary} />
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              AI assistance coming soon
+              AI assistance is here
             </Text>
             <Text className="text-xs text-muted mt-0.5">
-              Write your drafts now — AI suggestions will plug in here later.
+              Open a draft and tap &quot;Improve with AI&quot; to polish your writing.
             </Text>
           </View>
         </View>

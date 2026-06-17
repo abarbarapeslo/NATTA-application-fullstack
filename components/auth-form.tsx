@@ -85,7 +85,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
     if (!isFirebaseConfigured()) {
       notify(
         "Firebase not configured",
-        "Set EXPO_PUBLIC_FIREBASE_* in your .env file and restart the dev server.",
+        "Firebase failed to initialize. Make sure google-services.json / GoogleService-Info.plist are present and rebuild the app.",
       );
       return false;
     }
