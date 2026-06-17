@@ -17,11 +17,19 @@
       "android": {
         "buildType": "apk"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://natta-boii.onrender.com",
+        "EXPO_PUBLIC_AI_API_URL": "https://natta-ai-server.onrender.com"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://natta-boii.onrender.com",
+        "EXPO_PUBLIC_AI_API_URL": "https://natta-ai-server.onrender.com"
+      }
     }
   },
   "submit": {
