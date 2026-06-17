@@ -14,10 +14,11 @@ services:
     runtime: node
     plan: free
     region: oregon
-    # corepack provides the pnpm version pinned in package.json (packageManager).
+    # `corepack pnpm` runs the version pinned in package.json (packageManager)
+    # without `corepack enable`, which fails on Render's read-only /usr/bin (EROFS).
     # --prod=false ensures build-time devDeps (esbuild) are installed even though
     # NODE_ENV=production is set.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm build
     startCommand: node dist/index.mjs
     healthCheckPath: /api/health
     autoDeploy: false
