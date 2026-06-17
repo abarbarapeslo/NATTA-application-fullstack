@@ -41,6 +41,11 @@ async function authHeader(): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${token}` };
 }
 
+// The AI server runs on Render's free tier and may cold-start (~30-50s) after
+// idling. Give requests a generous ceiling so a waking server still succeeds,
+// but fail with a clear message instead of hanging forever.
+const AI_REQUEST_TIMEOUT_MS = 90_000;
+
 async function mutate<TInput, TOutput>(
   procedure: string,
   input: TInput,
@@ -59,11 +64,33 @@ async function mutate<TInput, TOutput>(
     ...(await authHeader()),
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(superjson.serialize(input)),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(superjson.serialize(input)),
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new AiApiError(
+        0,
+        "TIMEOUT",
+        "The AI service took too long to respond. The server may be waking up — please try again in a moment.",
+      );
+    }
+    throw new AiApiError(
+      0,
+      "NETWORK",
+      "Could not reach the AI service. Check your connection and try again.",
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const json = await res.json().catch(() => null);
 

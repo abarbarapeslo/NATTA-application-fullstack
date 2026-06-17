@@ -59,6 +59,8 @@ export default function ResumeAssistantScreen() {
   // AI assistant state
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  // Shown while the AI request runs longer than expected (free-tier cold start).
+  const [aiSlowHint, setAiSlowHint] = useState(false);
   const [customInstruction, setCustomInstruction] = useState("");
   // Snapshot of the content before the last AI edit, so the user can undo.
   const [preAiContent, setPreAiContent] = useState<string | null>(null);
@@ -90,6 +92,8 @@ export default function ResumeAssistantScreen() {
     }
 
     setAiLoading(true);
+    setAiSlowHint(false);
+    const slowTimer = setTimeout(() => setAiSlowHint(true), 6000);
     try {
       const result = await resumeAi.improve({
         content: editorContent,
@@ -109,7 +113,9 @@ export default function ResumeAssistantScreen() {
           : "Could not reach the AI service. Try again.";
       Alert.alert("AI assistant", message);
     } finally {
+      clearTimeout(slowTimer);
       setAiLoading(false);
+      setAiSlowHint(false);
     }
   };
 
@@ -221,6 +227,14 @@ export default function ResumeAssistantScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {aiLoading && aiSlowHint && (
+          <View className="mx-6 mb-2">
+            <Text className="text-xs text-muted text-center">
+              Waking up the AI server… the first request after idle can take up to a minute.
+            </Text>
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           <View className="px-6 pt-3">
