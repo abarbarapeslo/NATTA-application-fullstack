@@ -26,7 +26,6 @@ export default function ProfileScreen() {
   const [showEditEducation, setShowEditEducation] = useState(false);
   const [showEditExperience, setShowEditExperience] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [showEditSkills, setShowEditSkills] = useState(false);
   const [showEditInterests, setShowEditInterests] = useState(false);
 
   // Edit form states
@@ -46,7 +45,6 @@ export default function ProfileScreen() {
   const [editProjDescription, setEditProjDescription] = useState("");
   const [editProjTags, setEditProjTags] = useState("");
 
-  const [editSkillsText, setEditSkillsText] = useState("");
   const [editInterestsText, setEditInterestsText] = useState("");
 
   useEffect(() => {
@@ -117,17 +115,6 @@ export default function ProfileScreen() {
       tags: editProjTags.split(",").map((t) => t.trim()).filter((t) => t),
     });
     setShowEditProject(false);
-  };
-
-  const handleEditSkills = () => {
-    setEditSkillsText(profile.skills.join(", "));
-    setShowEditSkills(true);
-  };
-
-  const handleSaveSkills = async () => {
-    const newSkills = editSkillsText.split(",").map((s) => s.trim()).filter((s) => s);
-    await saveProfile({ skills: newSkills });
-    setShowEditSkills(false);
   };
 
   const handleEditInterests = () => {
@@ -230,10 +217,12 @@ export default function ProfileScreen() {
             ))}
           </View>
 
-          {/* Interests Section (NATTA backend) */}
+          {/* Skills & Interests Section (NATTA backend, used for matching) */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Interests</Text>
+              <Text className="text-lg font-bold text-foreground">
+                Skills &amp; Interests
+              </Text>
               <TouchableOpacity onPress={handleEditInterests}>
                 <IconSymbol name="pencil" size={24} color={colors.primary} />
               </TouchableOpacity>
@@ -241,28 +230,13 @@ export default function ProfileScreen() {
             <View className="flex-row flex-wrap gap-2">
               {profile.interests.length === 0 ? (
                 <Text className="text-sm text-muted">
-                  Add interests to help match you with opportunities.
+                  Add skills and interests to help match you with opportunities.
                 </Text>
               ) : (
                 profile.interests.map((interest, idx) => (
                   <Tag key={`interest-${idx}`} label={interest} />
                 ))
               )}
-            </View>
-          </View>
-
-          {/* Skills Section (local) */}
-          <View>
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Skills</Text>
-              <TouchableOpacity onPress={handleEditSkills}>
-                <IconSymbol name="pencil" size={24} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <View className="flex-row flex-wrap gap-2">
-              {profile.skills.map((skill, idx) => (
-                <Tag key={idx} label={skill} />
-              ))}
             </View>
           </View>
         </View>
@@ -475,58 +449,24 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Edit Skills Modal */}
-      <Modal visible={showEditSkills} animationType="fade" transparent>
-        <View className="flex-1 bg-black/50 items-center justify-center">
-          <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
-            <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Edit Skills</Text>
-            </View>
-            <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Skills (comma separated)</Text>
-              <TextInput
-                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
-                value={editSkillsText}
-                onChangeText={setEditSkillsText}
-                placeholder="Project Management, Marketing, SQL"
-                placeholderTextColor={colors.muted}
-                multiline
-              />
-            </ScrollView>
-            <View className="flex-row gap-3 px-6 py-4 border-t border-border">
-              <TouchableOpacity
-                className="flex-1 bg-surface rounded-2xl py-3 items-center"
-                onPress={() => setShowEditSkills(false)}
-              >
-                <Text className="text-foreground font-semibold">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 bg-primary rounded-2xl py-3 items-center"
-                onPress={handleSaveSkills}
-              >
-                <Text className="text-surface font-semibold">Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Interests Modal (saved to NATTA backend) */}
+      {/* Edit Skills & Interests Modal (saved to NATTA backend) */}
       <Modal visible={showEditInterests} animationType="fade" transparent>
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Edit Interests</Text>
+              <Text className="text-lg font-bold text-foreground">
+                Edit Skills &amp; Interests
+              </Text>
             </View>
             <ScrollView className="px-6 py-4">
               <Text className="text-sm font-semibold text-foreground mb-2">
-                Interests (comma separated)
+                Skills &amp; interests (comma separated)
               </Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-2"
                 value={editInterestsText}
                 onChangeText={setEditInterestsText}
-                placeholder="Scholarships, Research, Marketing"
+                placeholder="Marketing, Research, SQL, Scholarships"
                 placeholderTextColor={colors.muted}
                 multiline
               />

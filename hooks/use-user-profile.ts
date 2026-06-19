@@ -64,6 +64,24 @@ const emptyExtras: ExtraSections = {
   projects: [],
 };
 
+/**
+ * Union of two tag lists, keeping `primary` order and appending any items from
+ * `extra` that aren't already present (case-insensitive). Used to merge the
+ * legacy Firestore `skills` into the canonical NATTA `interests`.
+ */
+function mergeUnique(primary: string[], extra: string[]): string[] {
+  const seen = new Set(primary.map((s) => s.trim().toLowerCase()));
+  const out = [...primary];
+  for (const item of extra) {
+    const key = item.trim().toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      out.push(item.trim());
+    }
+  }
+  return out;
+}
+
 async function migrateAsyncStorageOnce(uid: string) {
   const flagKey = `${MIGRATION_FLAG}:${uid}`;
   if (await AsyncStorage.getItem(flagKey)) return;
@@ -140,6 +158,9 @@ export function useUserProfile() {
     }
     setLoading(true);
     setProfile((prev) => ({ ...prev, apiStatus: "loading" }));
+    // Legacy Firestore skills, captured here so we can fold them into the
+    // canonical NATTA `interests` once that fetch resolves (see migration below).
+    let legacySkills: string[] = [];
     try {
       await migrateAsyncStorageOnce(uid);
 
@@ -154,11 +175,12 @@ export function useUserProfile() {
         title?: string;
         skills?: string[];
       };
+      legacySkills = firestoreData.skills ?? [];
       setProfile((prev) => ({
         ...prev,
         name: displayNameFromUser(firebaseUser),
         title: firestoreData.title ?? "",
-        skills: firestoreData.skills ?? [],
+        skills: legacySkills,
       }));
       setExtras({
         education: eduSnap.docs.map((d) => ({
@@ -183,10 +205,34 @@ export function useUserProfile() {
     // NATTA backend (bio + interests) — may cold-start on Render free tier
     try {
       const me = await nattaAuth.me();
+      let interests = me?.interests ?? [];
+
+      // One-time merge: fold legacy Firestore `skills` into `interests` (the
+      // unified "Skills & Interests" field), then clear the old skills so we
+      // don't migrate again on the next load.
+      if (legacySkills.length > 0) {
+        const merged = mergeUnique(interests, legacySkills);
+        try {
+          if (merged.length !== interests.length) {
+            await nattaAuth.updateProfile({ interests: merged });
+            interests = merged;
+          }
+          await userDoc(uid).set(
+            { skills: [], updatedAt: serverTimestamp() },
+            { merge: true },
+          );
+          legacySkills = [];
+        } catch (merrErr) {
+          // Migration is best-effort; keep skills for a later attempt.
+          console.warn("[profile] skills→interests migration failed", merrErr);
+        }
+      }
+
       setProfile((prev) => ({
         ...prev,
         bio: me?.bio ?? "",
-        interests: me?.interests ?? [],
+        interests,
+        skills: legacySkills,
         apiStatus: "ready",
       }));
     } catch (err) {
