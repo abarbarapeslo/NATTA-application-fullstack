@@ -162,7 +162,7 @@ export default function HomeScreen() {
             style={{ width: 120, height: 32 }}
             resizeMode="contain"
           />
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/notifications-settings" as any)}>
             <IconSymbol name="bell" size={24} color={colors.foreground} />
           </TouchableOpacity>
         </View>
