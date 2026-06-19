@@ -16,8 +16,7 @@ import {
   displayNameFromUser,
 } from "@/hooks/use-firebase-user";
 import { auth as nattaAuth, NattaApiError } from "@/lib/natta-api";
-import { getFirebaseAuth } from "@/lib/firebase";
-import { uploadAvatar, deleteAvatar } from "@/lib/avatar";
+import { buildAvatarDataUri } from "@/lib/avatar";
 
 const LEGACY_PROFILE_STORAGE_KEY = "@natta_profile";
 const LEGACY_LEGACY_KEY = "@aipply_profile";
@@ -274,41 +273,31 @@ export function useUserProfile() {
   );
 
   /**
-   * Uploads a new avatar to Firebase Storage and stores its URL on the
-   * Firestore user doc + Firebase Auth profile. Returns the download URL.
+   * Downscales the picked image to a small base64 data URI and stores it on the
+   * Firestore user doc (`photoURL`). No external storage is used — see
+   * `lib/avatar.ts`. Returns the stored data URI.
    */
   const saveAvatar = useCallback(
     async (localUri: string) => {
       if (!uid) return null;
-      const url = await uploadAvatar(uid, localUri);
+      const dataUri = await buildAvatarDataUri(localUri);
       await userDoc(uid).set(
-        { photoURL: url, updatedAt: serverTimestamp() },
+        { photoURL: dataUri, updatedAt: serverTimestamp() },
         { merge: true },
       );
-      try {
-        await getFirebaseAuth().currentUser?.updateProfile({ photoURL: url });
-      } catch (err) {
-        console.warn("[profile] auth photoURL update failed", err);
-      }
-      setProfile((prev) => ({ ...prev, photoURL: url }));
-      return url;
+      setProfile((prev) => ({ ...prev, photoURL: dataUri }));
+      return dataUri;
     },
     [uid],
   );
 
-  /** Removes the avatar from Storage and clears its references. */
+  /** Clears the stored avatar from the Firestore user doc. */
   const removeAvatar = useCallback(async () => {
     if (!uid) return;
-    await deleteAvatar(uid);
     await userDoc(uid).set(
       { photoURL: "", updatedAt: serverTimestamp() },
       { merge: true },
     );
-    try {
-      await getFirebaseAuth().currentUser?.updateProfile({ photoURL: null });
-    } catch (err) {
-      console.warn("[profile] auth photoURL clear failed", err);
-    }
     setProfile((prev) => ({ ...prev, photoURL: "" }));
   }, [uid]);
 
