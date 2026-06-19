@@ -1,10 +1,21 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, Modal, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { Tag } from "@/components/ui/tag";
 import { useEffect, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { telemetry } from "@/lib/telemetry";
 
@@ -16,10 +27,14 @@ export default function ProfileScreen() {
     experience,
     projects,
     saveProfile,
+    saveAvatar,
+    removeAvatar,
     addEducation,
     addExperience,
     addProject,
   } = useUserProfile();
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Modal states
   const [showEditBasic, setShowEditBasic] = useState(false);
@@ -50,6 +65,75 @@ export default function ProfileScreen() {
   useEffect(() => {
     telemetry.screen("profile");
   }, []);
+
+  const uploadFromUri = async (uri: string) => {
+    setUploadingAvatar(true);
+    try {
+      await saveAvatar(uri);
+      telemetry.event("profile_avatar_updated");
+    } catch {
+      Alert.alert("Upload failed", "Could not update your photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const pickFromGallery = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow photo access to choose a picture.");
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets[0]?.uri) {
+      await uploadFromUri(res.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow camera access to take a picture.");
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets[0]?.uri) {
+      await uploadFromUri(res.assets[0].uri);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    try {
+      await removeAvatar();
+    } catch {
+      Alert.alert("Could not remove", "Failed to remove your photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const openAvatarOptions = () => {
+    if (uploadingAvatar) return;
+    const options: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [
+      { text: "Take photo", onPress: takePhoto },
+      { text: "Choose from gallery", onPress: pickFromGallery },
+    ];
+    if (profile.photoURL) {
+      options.push({ text: "Remove photo", style: "destructive", onPress: handleRemoveAvatar });
+    }
+    options.push({ text: "Cancel", style: "cancel" });
+    Alert.alert("Profile photo", undefined, options);
+  };
 
   const handleEditBasicInfo = () => {
     setEditTitle(profile.title);
@@ -152,9 +236,45 @@ export default function ProfileScreen() {
 
         {/* Profile Photo & Info */}
         <View className="items-center px-6 mb-6">
-          <View className="w-24 h-24 rounded-full bg-muted/20 items-center justify-center mb-3">
-            <IconSymbol name="person.fill" size={40} color={colors.muted} />
-          </View>
+          <TouchableOpacity
+            onPress={openAvatarOptions}
+            disabled={uploadingAvatar}
+            activeOpacity={0.8}
+            className="mb-3"
+          >
+            <View className="w-24 h-24 rounded-full bg-muted/20 items-center justify-center overflow-hidden">
+              {profile.photoURL ? (
+                <Image
+                  source={{ uri: profile.photoURL }}
+                  style={{ width: 96, height: 96 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <IconSymbol name="person.fill" size={40} color={colors.muted} />
+              )}
+              {uploadingAvatar && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ActivityIndicator color="#fff" />
+                </View>
+              )}
+            </View>
+            <View
+              className="absolute bottom-0 right-0 bg-primary rounded-full w-8 h-8 items-center justify-center border-2 border-background"
+            >
+              <IconSymbol name="camera.fill" size={16} color={colors.surface} />
+            </View>
+          </TouchableOpacity>
           <Text className="text-2xl font-bold text-foreground">{profile.name}</Text>
           <Text className="text-sm text-muted mt-1">{profile.title}</Text>
           <Text className="text-sm text-foreground mt-2 text-center px-8">{profile.bio}</Text>

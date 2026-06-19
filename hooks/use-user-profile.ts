@@ -16,6 +16,8 @@ import {
   displayNameFromUser,
 } from "@/hooks/use-firebase-user";
 import { auth as nattaAuth, NattaApiError } from "@/lib/natta-api";
+import { getFirebaseAuth } from "@/lib/firebase";
+import { uploadAvatar, deleteAvatar } from "@/lib/avatar";
 
 const LEGACY_PROFILE_STORAGE_KEY = "@natta_profile";
 const LEGACY_LEGACY_KEY = "@aipply_profile";
@@ -38,6 +40,7 @@ type LoadedProfile = {
   name: string;
   title: string;
   bio: string;
+  photoURL: string;
   interests: string[];
   skills: string[];
   apiStatus: "idle" | "loading" | "ready" | "error";
@@ -49,10 +52,11 @@ type ExtraSections = {
   projects: Project[];
 };
 
-const emptyProfile = (name: string): LoadedProfile => ({
+const emptyProfile = (name: string, photoURL = ""): LoadedProfile => ({
   name,
   title: "",
   bio: "",
+  photoURL,
   interests: [],
   skills: [],
   apiStatus: "idle",
@@ -144,14 +148,16 @@ export function useUserProfile() {
   const firebaseUser = useFirebaseUser();
   const uid = firebaseUser?.uid ?? null;
   const [profile, setProfile] = useState<LoadedProfile>(() =>
-    emptyProfile(displayNameFromUser(firebaseUser)),
+    emptyProfile(displayNameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
   );
   const [extras, setExtras] = useState<ExtraSections>(emptyExtras);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     if (!uid) {
-      setProfile(emptyProfile(displayNameFromUser(firebaseUser)));
+      setProfile(
+        emptyProfile(displayNameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
+      );
       setExtras(emptyExtras);
       setLoading(false);
       return;
@@ -174,12 +180,15 @@ export function useUserProfile() {
       const firestoreData = (docSnap.data() ?? {}) as {
         title?: string;
         skills?: string[];
+        photoURL?: string;
       };
       legacySkills = firestoreData.skills ?? [];
       setProfile((prev) => ({
         ...prev,
         name: displayNameFromUser(firebaseUser),
         title: firestoreData.title ?? "",
+        // Firestore wins; fall back to the auth provider photo (e.g. Google).
+        photoURL: firestoreData.photoURL ?? firebaseUser?.photoURL ?? "",
         skills: legacySkills,
       }));
       setExtras({
@@ -263,6 +272,45 @@ export function useUserProfile() {
     },
     [uid],
   );
+
+  /**
+   * Uploads a new avatar to Firebase Storage and stores its URL on the
+   * Firestore user doc + Firebase Auth profile. Returns the download URL.
+   */
+  const saveAvatar = useCallback(
+    async (localUri: string) => {
+      if (!uid) return null;
+      const url = await uploadAvatar(uid, localUri);
+      await userDoc(uid).set(
+        { photoURL: url, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+      try {
+        await getFirebaseAuth().currentUser?.updateProfile({ photoURL: url });
+      } catch (err) {
+        console.warn("[profile] auth photoURL update failed", err);
+      }
+      setProfile((prev) => ({ ...prev, photoURL: url }));
+      return url;
+    },
+    [uid],
+  );
+
+  /** Removes the avatar from Storage and clears its references. */
+  const removeAvatar = useCallback(async () => {
+    if (!uid) return;
+    await deleteAvatar(uid);
+    await userDoc(uid).set(
+      { photoURL: "", updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    try {
+      await getFirebaseAuth().currentUser?.updateProfile({ photoURL: null });
+    } catch (err) {
+      console.warn("[profile] auth photoURL clear failed", err);
+    }
+    setProfile((prev) => ({ ...prev, photoURL: "" }));
+  }, [uid]);
 
   /** Bio + interests live in the NATTA backend (shared with website). */
   const saveApiProfile = useCallback(
@@ -387,6 +435,8 @@ export function useUserProfile() {
     loading,
     reload,
     saveProfile,
+    saveAvatar,
+    removeAvatar,
     addEducation,
     addExperience,
     addProject,

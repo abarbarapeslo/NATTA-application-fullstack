@@ -76,6 +76,16 @@ const config: ExpoConfig = {
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
     "@react-native-firebase/messaging",
+    "@react-native-firebase/storage",
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Allow $(PRODUCT_NAME) to access your photos to set a profile picture.",
+        cameraPermission:
+          "Allow $(PRODUCT_NAME) to access your camera to take a profile picture.",
+      },
+    ],
     [
       "@react-native-google-signin/google-signin",
     ],

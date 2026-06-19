@@ -41,6 +41,7 @@ const MAPPING = {
   "checkmark": "check",
   "eye": "visibility",
   "eye.slash": "visibility-off",
+  "camera.fill": "photo-camera",
 } as IconMapping;
 
 /**
