@@ -39,6 +39,10 @@ const MAPPING = {
   "pencil": "edit",
   "bell": "notifications",
   "checkmark": "check",
+  "eye": "visibility",
+  "eye.slash": "visibility-off",
+  "camera.fill": "photo-camera",
+  "trash": "delete",
 } as IconMapping;
 
 /**

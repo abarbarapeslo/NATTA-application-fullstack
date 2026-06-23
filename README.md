@@ -2,7 +2,7 @@
 
 Aplicativo **multiplataforma** (iOS, Android e Web) focado em apoio à **jornada profissional** e organização: acompanhamento de **candidaturas**, espaços para **currículo**, **simulador de entrevistas**, **calendário**, ferramentas de escrita/design, notificações e perfil — com backend integrado para autenticação e APIs tipadas quando configurado.
 
-> **Nota de branding:** o arquivo `app.config.ts` ainda pode exibir o nome herdado do template (ex.: “AIpply”). Para publicar como **Natta**, ajuste `appName`, `appSlug` e os identificadores de bundle conforme sua conta de desenvolvedor.
+> **Branding:** o app está configurado como **Natta** em `app.config.ts` (`appName`, `appSlug`, bundle id, scheme). Ajuste só se o registo nas lojas ou domínio forem diferentes.
 
 ---
 
@@ -100,9 +100,23 @@ pnpm ios
 ### 6. Build e produção do servidor
 
 ```bash
-pnpm build        # gera dist/ com esbuild
-pnpm start        # NODE_ENV=production node dist/index.js
+pnpm build        # gera dist/index.mjs com esbuild
+pnpm start        # NODE_ENV=production node dist/index.mjs
 ```
+
+### Deploy do servidor de IA no Render
+
+O servidor (`server/`) hospeda as procedures de IA (Claude) consumidas pelo app.
+O repositório já inclui um **`render.yaml`** (Blueprint):
+
+1. Faça push do repo para o GitHub.
+2. No Render: **New → Blueprint** e selecione o repositório (ele lê o `render.yaml`).
+3. Configure o secret **`ANTHROPIC_API_KEY`** no painel do Render (nunca commite a chave).
+4. Após o primeiro deploy, copie a URL do serviço e coloque no `.env` do app:
+   `EXPO_PUBLIC_AI_API_URL=https://<seu-serviço>.onrender.com`
+
+Health check: `/api/health`. Endpoint de IA: `/api/trpc/ai.improveResume`
+(exige token Firebase no header `Authorization`).
 
 ### 7. Banco de dados (quando usar Drizzle)
 
@@ -130,6 +144,22 @@ pnpm test         # Vitest
 | `lib/` | Cliente tRPC, tema, utilitários |
 | `shared/` | Constantes e tipos compartilhados |
 | `hooks/` | Hooks React (ex.: autenticação) |
+| `.github/workflows/` | GitHub Actions: `feature.yml`, `staging.yml`, `production.yml` (stack **pnpm**) |
+| `memory.md` | KPIs de produto (startup, Home, taxa de erro) e notas de instrumentação |
+
+---
+
+## CI/CD (GitHub Actions)
+
+Workflows na pasta **`.github/workflows/`**, usando **pnpm** (`pnpm install --frozen-lockfile`, `pnpm run build`, `pnpm run lint`, testes e auditoria conforme cada arquivo).
+
+| Workflow | Quando roda | Observação |
+|----------|----------------|-------------|
+| **`feature.yml`** | Push e PR em branches `feat/**` | Quality + criação automática de PR para `staging` (em push). |
+| **`staging.yml`** | Push em `staging` ou `feat/**`; PR para `staging` | Quality + `create-pr` em push; job **Deploy Vercel (staging)** está **desligado** (`if: false`) até vocês reativarem. |
+| **`production.yml`** | Push em `main` | Quality estrita; job **Deploy Vercel (production)** está **desligado** (`if: false`) até reativar. |
+
+Para ligar o deploy na Vercel depois: remova ou ajuste o `if: false` nos jobs de deploy e configure os secrets **`VERCEL_TOKEN`**, **`VERCEL_ORG_ID`**, **`VERCEL_PROJECT_ID`** no repositório (e URLs reais nos `environment.url`).
 
 ---
 

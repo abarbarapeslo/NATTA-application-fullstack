@@ -1,148 +1,167 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, Modal, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { Tag } from "@/components/ui/tag";
-import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-type Education = {
-  id: number;
-  institution: string;
-  degree: string;
-  period: string;
-};
-
-type Experience = {
-  id: number;
-  title: string;
-  company: string;
-  period: string;
-  description: string;
-};
-
-type Project = {
-  id: number;
-  title: string;
-  description: string;
-  tags: string[];
-};
+import { useEffect, useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { useUserProfile } from "@/hooks/use-user-profile";
+import { notifyUserProfileChanged } from "@/hooks/use-firebase-user";
+import { useTranslation } from "@/hooks/use-locale";
+import { telemetry } from "@/lib/telemetry";
 
 export default function ProfileScreen() {
   const colors = useColors();
-  
-  // Profile data state
-  const [profile, setProfile] = useState({
-    name: "Giulia Alvares",
-    title: "Business Student at PUCPR",
-    bio: "Passionate about business strategy and innovation",
-    education: [
-      {
-        id: 1,
-        institution: "PUCPR - Pontifícia Universidade Católica do Paraná",
-        degree: "Bachelor of Business Administration",
-        period: "Jan 2020 - Present",
-      },
-    ] as Education[],
-    experience: [
-      {
-        id: 1,
-        title: "Business Strategy Intern",
-        company: "TechSolutions Inc.",
-        period: "Jun 2022 - Dec 2022",
-        description:
-          "Business strategy intern at TechSolutions Inc. with core responsibilities and financial communications.",
-      },
-    ] as Experience[],
-    projects: [
-      {
-        id: 1,
-        title: "Market Analysis Report",
-        description: "Market analysis report share data analysis or conceptng to analysis and market research.",
-        tags: ["Data Analysis", "Market Research", "Excel"],
-      },
-      {
-        id: 2,
-        title: "Startup Pitch Deck",
-        description: "Startup pitch deck share presentation and analyst financial analysis and strategic modeling.",
-        tags: ["Presentation", "Financial Modeling", "Strategy"],
-      },
-    ] as Project[],
-    skills: [
-      "Project Management",
-      "Digital Marketing",
-      "Team Leadership",
-      "Financial Analysis",
-      "Communication",
-      "Strategic Planning",
-      "SQL",
-    ],
-  });
+  const { t } = useTranslation();
+  const {
+    profile,
+    education,
+    experience,
+    projects,
+    saveProfile,
+    saveAvatar,
+    removeAvatar,
+    addEducation,
+    addExperience,
+    addProject,
+    removeEducation,
+    removeExperience,
+    removeProject,
+  } = useUserProfile();
+
+  useFocusEffect(
+    useCallback(() => {
+      notifyUserProfileChanged();
+    }, []),
+  );
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Modal states
   const [showEditBasic, setShowEditBasic] = useState(false);
   const [showEditEducation, setShowEditEducation] = useState(false);
   const [showEditExperience, setShowEditExperience] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [showEditSkills, setShowEditSkills] = useState(false);
+  const [showEditInterests, setShowEditInterests] = useState(false);
 
   // Edit form states
-  const [editName, setEditName] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editBio, setEditBio] = useState("");
-  
+
   const [editEduInstitution, setEditEduInstitution] = useState("");
   const [editEduDegree, setEditEduDegree] = useState("");
   const [editEduPeriod, setEditEduPeriod] = useState("");
-  
+
   const [editExpTitle, setEditExpTitle] = useState("");
   const [editExpCompany, setEditExpCompany] = useState("");
   const [editExpPeriod, setEditExpPeriod] = useState("");
   const [editExpDescription, setEditExpDescription] = useState("");
-  
+
   const [editProjTitle, setEditProjTitle] = useState("");
   const [editProjDescription, setEditProjDescription] = useState("");
   const [editProjTags, setEditProjTags] = useState("");
-  
-  const [editSkillsText, setEditSkillsText] = useState("");
 
-  // Load profile from AsyncStorage
+  const [editInterestsText, setEditInterestsText] = useState("");
+
   useEffect(() => {
-    loadProfile();
+    telemetry.screen("profile");
   }, []);
 
-  const loadProfile = async () => {
+  const uploadFromUri = async (uri: string) => {
+    setUploadingAvatar(true);
     try {
-      const savedProfile = await AsyncStorage.getItem("@aipply_profile");
-      if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
-      }
-    } catch (error) {
-      console.error("Error loading profile:", error);
+      await saveAvatar(uri);
+      telemetry.event("profile_avatar_updated");
+    } catch {
+      Alert.alert("Upload failed", "Could not update your photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
-  const saveProfile = async (updatedProfile: typeof profile) => {
-    try {
-      await AsyncStorage.setItem("@aipply_profile", JSON.stringify(updatedProfile));
-      setProfile(updatedProfile);
-    } catch (error) {
-      console.error("Error saving profile:", error);
+  const pickFromGallery = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow photo access to choose a picture.");
+      return;
     }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets[0]?.uri) {
+      await uploadFromUri(res.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permission needed", "Allow camera access to take a picture.");
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+    });
+    if (!res.canceled && res.assets[0]?.uri) {
+      await uploadFromUri(res.assets[0].uri);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    try {
+      await removeAvatar();
+    } catch {
+      Alert.alert("Could not remove", "Failed to remove your photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const openAvatarOptions = () => {
+    if (uploadingAvatar) return;
+    const options: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [
+      { text: "Take photo", onPress: takePhoto },
+      { text: "Choose from gallery", onPress: pickFromGallery },
+    ];
+    if (profile.photoURL) {
+      options.push({ text: "Remove photo", style: "destructive", onPress: handleRemoveAvatar });
+    }
+    options.push({ text: "Cancel", style: "cancel" });
+    Alert.alert("Profile photo", undefined, options);
   };
 
   const handleEditBasicInfo = () => {
-    setEditName(profile.name);
     setEditTitle(profile.title);
     setEditBio(profile.bio);
     setShowEditBasic(true);
   };
 
-  const handleSaveBasicInfo = () => {
-    const updated = { ...profile, name: editName, title: editTitle, bio: editBio };
-    saveProfile(updated);
-    setShowEditBasic(false);
+  const handleSaveBasicInfo = async () => {
+    try {
+      await saveProfile({ title: editTitle, bio: editBio });
+      setShowEditBasic(false);
+    } catch {
+      // Bio save (NATTA backend) failed — leave the modal open so the
+      // user can retry. Title (Firestore) save already succeeded.
+    }
   };
 
   const handleAddEducation = () => {
@@ -152,15 +171,12 @@ export default function ProfileScreen() {
     setShowEditEducation(true);
   };
 
-  const handleSaveEducation = () => {
-    const newEducation: Education = {
-      id: Date.now(),
+  const handleSaveEducation = async () => {
+    await addEducation({
       institution: editEduInstitution,
       degree: editEduDegree,
       period: editEduPeriod,
-    };
-    const updated = { ...profile, education: [...profile.education, newEducation] };
-    saveProfile(updated);
+    });
     setShowEditEducation(false);
   };
 
@@ -172,16 +188,13 @@ export default function ProfileScreen() {
     setShowEditExperience(true);
   };
 
-  const handleSaveExperience = () => {
-    const newExperience: Experience = {
-      id: Date.now(),
+  const handleSaveExperience = async () => {
+    await addExperience({
       title: editExpTitle,
       company: editExpCompany,
       period: editExpPeriod,
       description: editExpDescription,
-    };
-    const updated = { ...profile, experience: [...profile.experience, newExperience] };
-    saveProfile(updated);
+    });
     setShowEditExperience(false);
   };
 
@@ -192,28 +205,47 @@ export default function ProfileScreen() {
     setShowEditProject(true);
   };
 
-  const handleSaveProject = () => {
-    const newProject: Project = {
-      id: Date.now(),
+  const handleSaveProject = async () => {
+    await addProject({
       title: editProjTitle,
       description: editProjDescription,
-      tags: editProjTags.split(",").map((t) => t.trim()),
-    };
-    const updated = { ...profile, projects: [...profile.projects, newProject] };
-    saveProfile(updated);
+      tags: editProjTags.split(",").map((t) => t.trim()).filter((t) => t),
+    });
     setShowEditProject(false);
   };
 
-  const handleEditSkills = () => {
-    setEditSkillsText(profile.skills.join(", "));
-    setShowEditSkills(true);
+  const confirmDelete = (
+    labelKey: "profile.entryEducation" | "profile.entryExperience" | "profile.entryProject",
+    onConfirm: () => Promise<void>,
+  ) => {
+    Alert.alert(t("profile.removeEntryTitle"), t("profile.removeEntryMessage", { label: t(labelKey) }), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: () => {
+          onConfirm().catch(() => Alert.alert(t("common.error"), t("profile.removeFailed")));
+        },
+      },
+    ]);
   };
 
-  const handleSaveSkills = () => {
-    const newSkills = editSkillsText.split(",").map((s) => s.trim()).filter((s) => s);
-    const updated = { ...profile, skills: newSkills };
-    saveProfile(updated);
-    setShowEditSkills(false);
+  const handleEditInterests = () => {
+    setEditInterestsText(profile.interests.join(", "));
+    setShowEditInterests(true);
+  };
+
+  const handleSaveInterests = async () => {
+    const newInterests = editInterestsText
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s);
+    try {
+      await saveProfile({ interests: newInterests });
+      setShowEditInterests(false);
+    } catch {
+      // Leave the modal open on backend error so the user can retry.
+    }
   };
 
   return (
@@ -222,20 +254,56 @@ export default function ProfileScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <Image
-            source={require("@/assets/images/logo.png")}
+            source={require("@/assets/images/natta_icon.png")}
             style={{ width: 120, height: 32 }}
             resizeMode="contain"
           />
           <TouchableOpacity className="bg-primary rounded-full px-4 py-2" onPress={handleEditBasicInfo}>
-            <Text className="text-surface font-semibold text-sm">Edit Profile</Text>
+            <Text className="text-surface font-semibold text-sm">{t("profile.editProfile")}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Profile Photo & Info */}
         <View className="items-center px-6 mb-6">
-          <View className="w-24 h-24 rounded-full bg-muted/20 items-center justify-center mb-3">
-            <IconSymbol name="person.fill" size={40} color={colors.muted} />
-          </View>
+          <TouchableOpacity
+            onPress={openAvatarOptions}
+            disabled={uploadingAvatar}
+            activeOpacity={0.8}
+            className="mb-3"
+          >
+            <View className="w-24 h-24 rounded-full bg-muted/20 items-center justify-center overflow-hidden">
+              {profile.photoURL ? (
+                <Image
+                  source={{ uri: profile.photoURL }}
+                  style={{ width: 96, height: 96 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <IconSymbol name="person.fill" size={40} color={colors.muted} />
+              )}
+              {uploadingAvatar && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ActivityIndicator color="#fff" />
+                </View>
+              )}
+            </View>
+            <View
+              className="absolute bottom-0 right-0 bg-primary rounded-full w-8 h-8 items-center justify-center border-2 border-background"
+            >
+              <IconSymbol name="camera.fill" size={16} color={colors.surface} />
+            </View>
+          </TouchableOpacity>
           <Text className="text-2xl font-bold text-foreground">{profile.name}</Text>
           <Text className="text-sm text-muted mt-1">{profile.title}</Text>
           <Text className="text-sm text-foreground mt-2 text-center px-8">{profile.bio}</Text>
@@ -245,16 +313,26 @@ export default function ProfileScreen() {
           {/* Education Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Education</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.education")}</Text>
               <TouchableOpacity onPress={handleAddEducation}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.education.map((edu) => (
+            {education.map((edu) => (
               <Card key={edu.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{edu.institution}</Text>
-                <Text className="text-sm text-muted mt-1">{edu.degree}</Text>
-                <Text className="text-xs text-muted mt-1">{edu.period}</Text>
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{edu.institution}</Text>
+                    <Text className="text-sm text-muted mt-1">{edu.degree}</Text>
+                    <Text className="text-xs text-muted mt-1">{edu.period}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryEducation", () => removeEducation(edu.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
+                </View>
               </Card>
             ))}
           </View>
@@ -262,17 +340,27 @@ export default function ProfileScreen() {
           {/* Experience Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Experience</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.experience")}</Text>
               <TouchableOpacity onPress={handleAddExperience}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.experience.map((exp) => (
+            {experience.map((exp) => (
               <Card key={exp.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{exp.title}</Text>
-                <Text className="text-sm text-muted mt-1">{exp.company}</Text>
-                <Text className="text-xs text-muted mt-1">{exp.period}</Text>
-                <Text className="text-sm text-foreground mt-2">{exp.description}</Text>
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{exp.title}</Text>
+                    <Text className="text-sm text-muted mt-1">{exp.company}</Text>
+                    <Text className="text-xs text-muted mt-1">{exp.period}</Text>
+                    <Text className="text-sm text-foreground mt-2">{exp.description}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryExperience", () => removeExperience(exp.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
+                </View>
               </Card>
             ))}
           </View>
@@ -280,36 +368,54 @@ export default function ProfileScreen() {
           {/* Projects Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Projects</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.projects")}</Text>
               <TouchableOpacity onPress={handleAddProject}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
-            {profile.projects.map((proj) => (
+            {projects.map((proj) => (
               <Card key={proj.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{proj.title}</Text>
-                <Text className="text-sm text-foreground mt-2">{proj.description}</Text>
-                <View className="flex-row flex-wrap gap-2 mt-3">
-                  {proj.tags.map((tag, idx) => (
-                    <Tag key={idx} label={tag} />
-                  ))}
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{proj.title}</Text>
+                    <Text className="text-sm text-foreground mt-2">{proj.description}</Text>
+                    <View className="flex-row flex-wrap gap-2 mt-3">
+                      {proj.tags.map((tag, idx) => (
+                        <Tag key={idx} label={tag} />
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryProject", () => removeProject(proj.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
                 </View>
               </Card>
             ))}
           </View>
 
-          {/* Skills Section */}
+          {/* Skills & Interests Section (NATTA backend, used for matching) */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Skills</Text>
-              <TouchableOpacity onPress={handleEditSkills}>
+              <Text className="text-lg font-bold text-foreground">
+                {t("profile.skillsInterests")}
+              </Text>
+              <TouchableOpacity onPress={handleEditInterests}>
                 <IconSymbol name="pencil" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
             <View className="flex-row flex-wrap gap-2">
-              {profile.skills.map((skill, idx) => (
-                <Tag key={idx} label={skill} />
-              ))}
+              {profile.interests.length === 0 ? (
+                <Text className="text-sm text-muted">
+                  Add skills and interests to help match you with opportunities.
+                </Text>
+              ) : (
+                profile.interests.map((interest, idx) => (
+                  <Tag key={`interest-${idx}`} label={interest} />
+                ))
+              )}
             </View>
           </View>
         </View>
@@ -320,18 +426,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Edit Profile</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.editProfile")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Name</Text>
-              <TextInput
-                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Your name"
-                placeholderTextColor={colors.muted}
-              />
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editTitle}
@@ -339,7 +437,7 @@ export default function ProfileScreen() {
                 placeholder="Your title"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Bio</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.bio")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editBio}
@@ -354,13 +452,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditBasic(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveBasicInfo}
               >
-                <Text className="text-surface font-semibold">Save</Text>
+                <Text className="text-surface font-semibold">{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -372,10 +470,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Education</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addEducation")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Institution</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.institution")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduInstitution}
@@ -383,7 +481,7 @@ export default function ProfileScreen() {
                 placeholder="University name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Degree</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.degree")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduDegree}
@@ -391,7 +489,7 @@ export default function ProfileScreen() {
                 placeholder="Bachelor of..."
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Period</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.period")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduPeriod}
@@ -405,13 +503,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditEducation(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveEducation}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -423,10 +521,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Experience</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addExperience")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpTitle}
@@ -434,7 +532,7 @@ export default function ProfileScreen() {
                 placeholder="Job title"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Company</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.company")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpCompany}
@@ -442,7 +540,7 @@ export default function ProfileScreen() {
                 placeholder="Company name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Period</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.period")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpPeriod}
@@ -450,7 +548,7 @@ export default function ProfileScreen() {
                 placeholder="Jun 2022 - Dec 2022"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Description</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.description")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpDescription}
@@ -465,13 +563,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditExperience(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveExperience}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -483,10 +581,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Project</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addProject")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjTitle}
@@ -494,7 +592,7 @@ export default function ProfileScreen() {
                 placeholder="Project name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Description</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.description")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjDescription}
@@ -503,7 +601,7 @@ export default function ProfileScreen() {
                 placeholderTextColor={colors.muted}
                 multiline
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Tags (comma separated)</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.tagsPlaceholder")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjTags}
@@ -517,49 +615,56 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditProject(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveProject}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Edit Skills Modal */}
-      <Modal visible={showEditSkills} animationType="fade" transparent>
+      {/* Edit Skills & Interests Modal (saved to NATTA backend) */}
+      <Modal visible={showEditInterests} animationType="fade" transparent>
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Edit Skills</Text>
+              <Text className="text-lg font-bold text-foreground">
+                {t("profile.editSkillsInterests")}
+              </Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Skills (comma separated)</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                {t("profile.skillsInterestsPlaceholder")}
+              </Text>
               <TextInput
-                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
-                value={editSkillsText}
-                onChangeText={setEditSkillsText}
-                placeholder="Project Management, Marketing, SQL"
+                className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-2"
+                value={editInterestsText}
+                onChangeText={setEditInterestsText}
+                placeholder="Marketing, Research, SQL, Scholarships"
                 placeholderTextColor={colors.muted}
                 multiline
               />
+              <Text className="text-xs text-muted">
+                Used to match you with opportunities on NATTA.
+              </Text>
             </ScrollView>
             <View className="flex-row gap-3 px-6 py-4 border-t border-border">
               <TouchableOpacity
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
-                onPress={() => setShowEditSkills(false)}
+                onPress={() => setShowEditInterests(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
-                onPress={handleSaveSkills}
+                onPress={handleSaveInterests}
               >
-                <Text className="text-surface font-semibold">Save</Text>
+                <Text className="text-surface font-semibold">{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>

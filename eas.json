@@ -1,0 +1,42 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://natta-boii.onrender.com",
+        "EXPO_PUBLIC_AI_API_URL": "https://natta-ai-server.onrender.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://natta-boii.onrender.com",
+        "EXPO_PUBLIC_AI_API_URL": "https://natta-ai-server.onrender.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://natta-boii.onrender.com",
+        "EXPO_PUBLIC_AI_API_URL": "https://natta-ai-server.onrender.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

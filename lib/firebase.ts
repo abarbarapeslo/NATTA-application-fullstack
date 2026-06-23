@@ -1,60 +1,24 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import {
-  getAuth,
-  initializeAuth,
-  getReactNativePersistence,
-  type Auth,
-} from "firebase/auth";
-import { Platform } from "react-native";
+import firebase from "@react-native-firebase/app";
+import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
 
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-};
+export type FirebaseUser = FirebaseAuthTypes.User;
+export type FirebaseAuthError = FirebaseAuthTypes.NativeFirebaseAuthError;
 
-let appInstance: FirebaseApp | null = null;
-
-export function getFirebaseApp(): FirebaseApp {
-  if (!appInstance) {
-    appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  }
-  return appInstance;
-}
-
-let authInstance: Auth | null = null;
-
-function createFirebaseAuth(app: FirebaseApp): Auth {
-  if (Platform.OS === "web") {
-    if (typeof globalThis.document === "undefined") {
-      throw new Error(
-        "[firebase] getFirebaseAuth() must run in the browser (after mount), not during SSR.",
-      );
-    }
-    return getAuth(app);
-  }
-
-  try {
-    return initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } catch {
-    return getAuth(app);
-  }
+export function getFirebaseAuth(): FirebaseAuthTypes.Module {
+  return auth();
 }
 
 /**
- * Lazily creates Auth so Expo Web SSR does not call getAuth at import time
- * (`Component auth has not been registered yet`).
- * Use from useEffect / event handlers, not during render / module top-level.
+ * Firebase is initialized from the native config files bundled at build time
+ * (`google-services.json` / `GoogleService-Info.plist`). If those are missing
+ * or invalid, no default app gets registered. Checking `firebase.apps` is the
+ * honest runtime signal that Firebase is actually available — unlike checking
+ * `EXPO_PUBLIC_FIREBASE_*` env vars, which are not used for configuration.
  */
-export function getFirebaseAuth(): Auth {
-  if (!authInstance) {
-    authInstance = createFirebaseAuth(getFirebaseApp());
+export function isFirebaseConfigured(): boolean {
+  try {
+    return firebase.apps.length > 0;
+  } catch {
+    return false;
   }
-  return authInstance;
 }

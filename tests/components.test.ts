@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-describe("AIpply Mobile App - Component Tests", () => {
+describe("Natta Mobile App - Component Tests", () => {
   it("should have proper theme colors configured", () => {
     const { themeColors } = require("../theme.config.js");
     
@@ -18,8 +18,8 @@ describe("AIpply Mobile App - Component Tests", () => {
       "utf-8"
     );
     
-    expect(appConfigContent).toContain('appName: "AIpply"');
-    expect(appConfigContent).toContain('appSlug: "aipply-mobile"');
+    expect(appConfigContent).toContain('appName: "Natta"');
+    expect(appConfigContent).toContain('appSlug: "natta-mobile"');
   });
 
   it("should have all required icon mappings", () => {
@@ -47,12 +47,27 @@ describe("AIpply Mobile App - Component Tests", () => {
     expect(fs.existsSync(path.join(__dirname, "../app/(tabs)/tools.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../app/(tabs)/more.tsx"))).toBe(true);
     
-    // Check feature screens
+    // Check feature screens (live, routable tools)
     expect(fs.existsSync(path.join(__dirname, "../app/writing-hub.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../app/resume-assistant.tsx"))).toBe(true);
-    expect(fs.existsSync(path.join(__dirname, "../app/design-space.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../app/video-space.tsx"))).toBe(true);
-    expect(fs.existsSync(path.join(__dirname, "../app/interview-simulator.tsx"))).toBe(true);
+  });
+
+  it("keeps not-yet-launched screens parked outside the router (future-features/)", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    // Parked features must NOT be in app/ (otherwise expo-router exposes them).
+    expect(fs.existsSync(path.join(__dirname, "../app/design-space.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, "../app/interview-simulator.tsx"))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, "../app/calendar-view.tsx"))).toBe(false);
+
+    // They still live in future-features/ for a later launch.
+    expect(fs.existsSync(path.join(__dirname, "../future-features/design-space.tsx"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(__dirname, "../future-features/interview-simulator.tsx")),
+    ).toBe(true);
+    expect(fs.existsSync(path.join(__dirname, "../future-features/calendar-view.tsx"))).toBe(true);
   });
 
   it("should have all UI components created", () => {
@@ -63,13 +78,5 @@ describe("AIpply Mobile App - Component Tests", () => {
     expect(fs.existsSync(path.join(__dirname, "../components/ui/card.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../components/ui/tag.tsx"))).toBe(true);
     expect(fs.existsSync(path.join(__dirname, "../components/ui/icon-symbol.tsx"))).toBe(true);
-  });
-
-  it("should have design documentation", () => {
-    const fs = require("fs");
-    const path = require("path");
-    
-    expect(fs.existsSync(path.join(__dirname, "../design.md"))).toBe(true);
-    expect(fs.existsSync(path.join(__dirname, "../todo.md"))).toBe(true);
   });
 });
