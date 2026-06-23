@@ -8,9 +8,9 @@ import { useState } from "react";
 
 export default function InterviewSimulatorScreen() {
   const colors = useColors();
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion] = useState(1);
   const totalQuestions = 5;
-  const [timeLeft, setTimeLeft] = useState("02:30");
+  const [timeLeft] = useState("02:30");
 
   const question =
     "Tell me about a time when you faced a significant challenge in a team project. How did you handle it, and what was the outcome?";
@@ -32,7 +32,7 @@ export default function InterviewSimulatorScreen() {
               <IconSymbol name="xmark" size={24} color={colors.foreground} />
             </TouchableOpacity>
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/natta_icon.png")}
               style={{ width: 100, height: 28 }}
               resizeMode="contain"
             />

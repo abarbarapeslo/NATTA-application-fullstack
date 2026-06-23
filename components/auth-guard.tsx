@@ -1,31 +1,49 @@
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { router, useSegments } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 import { useColors } from "@/hooks/use-colors";
+import { usePushRegistration } from "@/hooks/use-push-registration";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  usePushRegistration();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const segments = useSegments();
   const colors = useColors();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (user) => {
-      setUser(user);
+    if (!isFirebaseConfigured()) {
+      console.warn(
+        "[AuthGuard] Firebase not initialized — skipping auth. Ensure google-services.json / GoogleService-Info.plist are present and rebuild the native app.",
+      );
+      setUser(null);
       setLoading(false);
-    });
+      return;
+    }
 
-    return unsubscribe;
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = getFirebaseAuth().onAuthStateChanged((user) => {
+        setUser(user);
+        setLoading(false);
+      });
+    } catch (err) {
+      console.error("[AuthGuard] Firebase auth init failed:", err);
+      setUser(null);
+      setLoading(false);
+    }
+
+    return () => unsubscribe?.();
   }, []);
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = (segments[0] as string) === "auth";
+    const inPublicGroup = (segments[0] as string) === "legal";
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !inPublicGroup) {
       // Redirect to login if not authenticated
       router.replace("/auth/login" as any);
     } else if (user && inAuthGroup) {
