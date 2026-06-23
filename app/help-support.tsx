@@ -1,32 +1,19 @@
 import { useState } from "react";
-import { ScrollView, Text, View, TouchableOpacity, Linking, Alert } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, Linking, Modal } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
+import Constants from "expo-constants";
 
 export default function HelpSupportScreen() {
   const colors = useColors();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [contactVisible, setContactVisible] = useState(false);
+  const supportEmail = "contato@natta.pro";
 
-  const handleContactSupport = () => {
-    Alert.alert(
-      "Contact Support",
-      "Choose how you want to contact us:",
-      [
-        {
-          text: "Email",
-          onPress: () => Linking.openURL("mailto:support@aipply.tech"),
-        },
-        {
-          text: "Website",
-          onPress: () => Linking.openURL("https://www.aipply.tech"),
-        },
-        { text: "Cancel", style: "cancel" },
-      ]
-    );
-  };
+  const handleContactSupport = () => setContactVisible(true);
 
   const faqItems = [
     {
@@ -37,7 +24,7 @@ export default function HelpSupportScreen() {
     {
       id: 2,
       question: "How does the conflict detection work?",
-      answer: "When you add start and end dates to your applications, AIpply automatically detects if two accepted opportunities overlap in time. Check the Calendar to see any conflicts and their severity.",
+      answer: "When you add start and end dates to your applications, Natta automatically detects if two accepted opportunities overlap in time. Check the Calendar to see any conflicts and their severity.",
     },
     {
       id: 3,
@@ -71,17 +58,17 @@ export default function HelpSupportScreen() {
     },
     {
       id: 2,
-      title: "Visit AIpply Website",
-      description: "Learn more about AIpply",
+      title: "Visit Natta Website",
+      description: "Learn more about Natta",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("https://www.aipply.tech"),
+      onPress: () => Linking.openURL("https://natta.pro/"),
     },
     {
       id: 3,
       title: "Report a Bug",
       description: "Help us improve the app",
       icon: "ellipsis.circle",
-      onPress: () => Linking.openURL("mailto:support@aipply.tech?subject=Bug Report"),
+      onPress: () => Linking.openURL("mailto:contato@natta.pro?subject=Bug Report"),
     },
   ];
 
@@ -161,9 +148,73 @@ export default function HelpSupportScreen() {
 
         {/* App Version */}
         <View className="px-6 mt-6">
-          <Text className="text-center text-sm text-muted">AIpply Mobile v1.9.1</Text>
+          <Text className="text-center text-sm text-muted">
+            Natta Mobile v{Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={contactVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setContactVisible(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setContactVisible(false)}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 24,
+          }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View
+              style={{
+                backgroundColor: colors.background,
+                borderRadius: 16,
+                padding: 24,
+                width: 320,
+                maxWidth: "100%",
+              }}
+            >
+              <Text className="text-xl font-bold text-foreground mb-2">
+                Contact Support
+              </Text>
+              <Text className="text-sm text-muted mb-4">
+                Send us an email and we&apos;ll get back to you as soon as possible.
+              </Text>
+
+              <View className="bg-surface border border-border rounded-lg px-4 py-3 mb-4">
+                <Text className="text-base font-semibold text-foreground text-center">
+                  {supportEmail}
+                </Text>
+              </View>
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => setContactVisible(false)}
+                  className="flex-1 py-3 rounded-lg items-center border border-border"
+                >
+                  <Text className="text-foreground font-semibold">Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Linking.openURL(`mailto:${supportEmail}`);
+                    setContactVisible(false);
+                  }}
+                  className="flex-1 bg-primary py-3 rounded-lg items-center"
+                >
+                  <Text className="text-white font-semibold">Send Email</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </ScreenContainer>
   );
 }

@@ -46,49 +46,7 @@ jobs:
 
       - name: Quality check passed
         run: echo "All quality checks passed!"
-
-  create-pr:
-    name: Auto Create PR
-    needs: quality-check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if PR already exists
-        id: check-pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          PR_EXISTS=$(gh pr list --head "$BRANCH_NAME" --base staging --json number --jq length)
-          echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-      - name: Create Pull Request
-        if: steps.check-pr.outputs.pr_exists == '0'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          BRANCH_NAME="${{ steps.check-pr.outputs.branch_name }}"
-          FEATURE_NAME=$(echo "$BRANCH_NAME" | sed 's/feat\///' | sed 's/-/ /g' | sed 's/\b\(.\)/\u\1/g')
-
-          gh pr create \
-            --base staging \
-            --head "$BRANCH_NAME" \
-            --title "Feature: $FEATURE_NAME" \
-            --body "Auto-generated PR from feature branch"
-
-      - name: PR Info
-        if: steps.check-pr.outputs.pr_exists != '0'
-        run: echo "PR already exists for this branch"
+  # PR automático só no Feature Workflow (evita corrida duplicada em push feat/**)
 
   deploy-staging:
     name: Deploy to Staging (Vercel)

@@ -1,116 +1,57 @@
 import { describe, it, expect } from "vitest";
+import fs from "fs";
+import path from "path";
 
-describe("AIpply - Applications Feature", () => {
-  it("should have dashboard with application creation functionality", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for application type definition
-    expect(dashboardContent).toContain("type Application");
-    expect(dashboardContent).toContain("name: string");
-    expect(dashboardContent).toContain("deadline: string");
-    expect(dashboardContent).toContain("status:");
-    expect(dashboardContent).toContain("type: string");
-    
-    // Check for modal
-    expect(dashboardContent).toContain("Modal");
-    expect(dashboardContent).toContain("New Application");
-    
-    // Check for form fields
-    expect(dashboardContent).toContain("Application Name");
-    expect(dashboardContent).toContain("Type/Area");
-    expect(dashboardContent).toContain("Deadline");
-    expect(dashboardContent).toContain("Status");
+/**
+ * The Home dashboard reads/writes applications through the NATTA backend
+ * (see `hooks/use-applications.ts` + `lib/natta-api.ts`). Each application is
+ * tied to a real `opportunityId` — the old free-form "create application"
+ * flow backed by AsyncStorage was removed by product decision.
+ *
+ * These are structural tests over the current implementation so the suite
+ * fails loudly if the data source regresses back to local storage.
+ */
+const dashboardContent = fs.readFileSync(
+  path.join(__dirname, "../app/(tabs)/index.tsx"),
+  "utf-8",
+);
+
+describe("Natta - Applications Feature", () => {
+  it("loads applications from the NATTA backend via useApplications", () => {
+    expect(dashboardContent).toContain("useApplications");
+    expect(dashboardContent).toContain("@/hooks/use-applications");
   });
 
-  it("should have all required status options", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for status options
-    expect(dashboardContent).toContain('"Draft"');
+  it("uses the current application status options", () => {
+    expect(dashboardContent).toContain('"Applied"');
     expect(dashboardContent).toContain('"In Progress"');
-    expect(dashboardContent).toContain('"Submitted"');
     expect(dashboardContent).toContain('"Accepted"');
     expect(dashboardContent).toContain('"Rejected"');
   });
 
-  it("should use AsyncStorage for persistence", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for AsyncStorage usage
-    expect(dashboardContent).toContain("AsyncStorage");
-    expect(dashboardContent).toContain("getItem");
-    expect(dashboardContent).toContain("setItem");
-    expect(dashboardContent).toContain('"applications"');
+  it("no longer uses AsyncStorage for application persistence", () => {
+    expect(dashboardContent).not.toContain("AsyncStorage");
+    expect(dashboardContent).not.toContain('"applications"');
   });
 
-  it("should not have progress bars in application cards", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check that progress bars are removed
+  it("does not have progress bars in application cards", () => {
     expect(dashboardContent).not.toContain("ProgressBar");
     expect(dashboardContent).not.toContain("progress:");
-    expect(dashboardContent).not.toContain("60%");
-    expect(dashboardContent).not.toContain("30%");
   });
 
-  it("should have save application functionality", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for save function
-    expect(dashboardContent).toContain("saveApplication");
-    expect(dashboardContent).toContain("Save Application");
+  it("guides users to browse opportunities instead of manual creation", () => {
+    expect(dashboardContent).toContain("home.browseOpportunities");
+    expect(dashboardContent).not.toContain("saveApplication");
   });
 
-  it("should display empty state when no applications exist", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for empty state
-    expect(dashboardContent).toContain("No applications yet");
-    expect(dashboardContent).toContain('applications.length === 0');
+  it("displays an empty state when there are no applications", () => {
+    expect(dashboardContent).toContain("home.noApplications");
+    expect(dashboardContent).toContain("applications.length === 0");
   });
 
-  it("should have edit status functionality", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const dashboardContent = fs.readFileSync(
-      path.join(__dirname, "../app/(tabs)/index.tsx"),
-      "utf-8"
-    );
-    
-    // Check for edit modal
-    expect(dashboardContent).toContain("editModalVisible");
-    expect(dashboardContent).toContain("Update Status");
-    expect(dashboardContent).toContain("updateApplicationStatus");
-    expect(dashboardContent).toContain("openEditModal");
+  it("supports editing status and removing an application", () => {
+    expect(dashboardContent).toContain("updateStatus");
+    expect(dashboardContent).toContain("removeApplication");
+    expect(dashboardContent).toContain("home.updateStatus");
   });
 });

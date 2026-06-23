@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -30,6 +32,37 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // Trust the first proxy hop so rate-limit and req.ip work correctly
+  // behind load balancers / reverse proxies (Cloud Run, Fly, Nginx, etc.).
+  app.set("trust proxy", 1);
+
+  // Security headers. CSP off because the API is JSON-only; helmet's other
+  // defaults (X-Frame-Options, X-Content-Type-Options, HSTS, etc.) are kept.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
+
+  const globalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please slow down." },
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many auth attempts. Please try again later." },
+  });
+
+  app.use(globalLimiter);
+
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -54,6 +87,9 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // Stricter limiter on auth-related routes to slow brute-force attempts.
+  app.use(["/api/oauth", "/auth"], authLimiter);
+
   registerOAuthRoutes(app);
 
   app.get("/api/health", (_req, res) => {
@@ -69,7 +105,13 @@ async function startServer() {
   );
 
   const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  // In production (Render / Cloud Run / etc.) the platform assigns the exact
+  // port via PORT and expects the process to bind to it. Only scan for a free
+  // port in local dev, where 3000 may already be in use.
+  const port =
+    process.env.NODE_ENV === "production"
+      ? preferredPort
+      : await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);

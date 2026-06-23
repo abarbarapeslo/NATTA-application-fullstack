@@ -1,3 +1,7 @@
+# Auto PR precisa de uma destas opções:
+# 1) Repo → Settings → Actions → General → Workflow permissions:
+#    marcar "Read and write permissions" E "Allow GitHub Actions to create and approve pull requests"
+# 2) Ou criar secret GH_PR_CREATE_TOKEN (fine-grained PAT: Contents read, Pull requests write no repo)
 name: Feature Workflow
 
 on:
@@ -67,7 +71,7 @@ jobs:
       - name: Check if PR already exists
         id: check-pr
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PR_CREATE_TOKEN != '' && secrets.GH_PR_CREATE_TOKEN || github.token }}
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           PR_EXISTS=$(gh pr list --head "$BRANCH_NAME" --base staging --json number --jq length)
@@ -77,7 +81,7 @@ jobs:
       - name: Create Pull Request
         if: steps.check-pr.outputs.pr_exists == '0'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PR_CREATE_TOKEN != '' && secrets.GH_PR_CREATE_TOKEN || github.token }}
         run: |
           BRANCH_NAME="${{ steps.check-pr.outputs.branch_name }}"
           FEATURE_NAME=$(echo "$BRANCH_NAME" | sed 's/feat\///' | sed 's/-/ /g' | sed 's/\b\(.\)/\u\1/g')
@@ -86,9 +90,9 @@ jobs:
             --base staging \
             --head "$BRANCH_NAME" \
             --title "Feature: $FEATURE_NAME" \
-            --body "Auto-generated PR from feature branch" \
-            --label "feature"
+            --body "Auto-generated PR from feature branch"
 
       - name: PR Info
         if: steps.check-pr.outputs.pr_exists != '0'
         run: echo "PR already exists for this branch"
+

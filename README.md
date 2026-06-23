@@ -2,7 +2,7 @@
 
 Aplicativo **multiplataforma** (iOS, Android e Web) focado em apoio à **jornada profissional** e organização: acompanhamento de **candidaturas**, espaços para **currículo**, **simulador de entrevistas**, **calendário**, ferramentas de escrita/design, notificações e perfil — com backend integrado para autenticação e APIs tipadas quando configurado.
 
-> **Nota de branding:** o arquivo `app.config.ts` ainda pode exibir o nome herdado do template (ex.: “AIpply”). Para publicar como **Natta**, ajuste `appName`, `appSlug` e os identificadores de bundle conforme sua conta de desenvolvedor.
+> **Branding:** o app está configurado como **Natta** em `app.config.ts` (`appName`, `appSlug`, bundle id, scheme). Ajuste só se o registo nas lojas ou domínio forem diferentes.
 
 ---
 
@@ -100,9 +100,23 @@ pnpm ios
 ### 6. Build e produção do servidor
 
 ```bash
-pnpm build        # gera dist/ com esbuild
-pnpm start        # NODE_ENV=production node dist/index.js
+pnpm build        # gera dist/index.mjs com esbuild
+pnpm start        # NODE_ENV=production node dist/index.mjs
 ```
+
+### Deploy do servidor de IA no Render
+
+O servidor (`server/`) hospeda as procedures de IA (Claude) consumidas pelo app.
+O repositório já inclui um **`render.yaml`** (Blueprint):
+
+1. Faça push do repo para o GitHub.
+2. No Render: **New → Blueprint** e selecione o repositório (ele lê o `render.yaml`).
+3. Configure o secret **`ANTHROPIC_API_KEY`** no painel do Render (nunca commite a chave).
+4. Após o primeiro deploy, copie a URL do serviço e coloque no `.env` do app:
+   `EXPO_PUBLIC_AI_API_URL=https://<seu-serviço>.onrender.com`
+
+Health check: `/api/health`. Endpoint de IA: `/api/trpc/ai.improveResume`
+(exige token Firebase no header `Authorization`).
 
 ### 7. Banco de dados (quando usar Drizzle)
 

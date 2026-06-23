@@ -1,90 +1,111 @@
-import { ScrollView, Text, View, TextInput, TouchableOpacity } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { OpportunityCard } from "@/components/opportunity-card";
 import { useColors } from "@/hooks/use-colors";
-import { Tag } from "@/components/ui/tag";
-import { useState } from "react";
+import { router } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOpportunities } from "@/hooks/use-opportunities";
+import { useApplications } from "@/hooks/use-applications";
+import { telemetry } from "@/lib/telemetry";
+import { useTranslation } from "@/hooks/use-locale";
+import type { OpportunityFilters } from "@/types/natta-router";
+
+const CATEGORIES = ["All", "Scholarship", "Internship", "Job", "Grant", "Research"];
+const REGIONS = ["All", "Global", "USA", "Europe", "Asia", "Brazil", "Remote"];
+const DEADLINES = ["All", "This Week", "This Month", "Next 3 Months"];
+
+function deadlineLabelToDate(label: string | null): Date | undefined {
+  if (!label || label === "All") return undefined;
+  const now = new Date();
+  if (label === "This Week") {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 7);
+    return d;
+  }
+  if (label === "This Month") {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  }
+  if (label === "Next 3 Months") {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() + 3);
+    return d;
+  }
+  return undefined;
+}
 
 export default function SearchScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>("All");
+  const [selectedRegion, setSelectedRegion] = useState<string | null>("All");
+  const [selectedDeadline, setSelectedDeadline] = useState<string | null>("All");
 
+  const filters = useMemo<OpportunityFilters | undefined>(() => {
+    const f: OpportunityFilters = {};
+    if (searchQuery.trim()) f.search = searchQuery.trim();
+    if (selectedCategory && selectedCategory !== "All") f.type = selectedCategory;
+    if (selectedRegion && selectedRegion !== "All") f.region = selectedRegion;
+    const d = deadlineLabelToDate(selectedDeadline);
+    if (d) f.deadlineBefore = d;
+    return Object.keys(f).length === 0 ? undefined : f;
+  }, [searchQuery, selectedCategory, selectedRegion, selectedDeadline]);
 
-  // Filter states
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-  const [selectedDeadline, setSelectedDeadline] = useState<string | null>(null);
+  const { opportunities, status, refreshing, error, reload, refresh } =
+    useOpportunities(filters);
+  // Used to badge cards as "Applied" when the user already has an
+  // application for that opportunity. Cheap: applications.list is small
+  // and React-state-cached by useApplications.
+  const { applications } = useApplications();
+  const appliedIds = useMemo(
+    () => new Set(applications.map((a) => a.opportunityId)),
+    [applications],
+  );
 
-  const categories = ["All", "Scholarships", "Internships", "Jobs", "Grants", "Research"];
-  const locations = ["All", "Global", "USA", "Europe", "Asia", "Remote"];
-  const deadlines = ["All", "This Week", "This Month", "Next 3 Months", "No Deadline"];
-
-  // Mock data - will be replaced with real API data
-  const opportunities = [
-    {
-      id: 1,
-      title: "Future Engineer Scholarship",
-      organization: "Tech Innovators Foundation",
-      deadline: "Oct 31, 2024",
-      location: "Global",
-      category: "Scholarship",
-      amount: "$10,000",
-      tags: ["Engineering", "Undergraduate", "Merit-based"],
-    },
-    {
-      id: 2,
-      title: "Women in STEM Grant",
-      organization: "National Science Society",
-      deadline: "Nov 15, 2024",
-      location: "USA",
-      category: "Grant",
-      amount: "$5,000",
-      tags: ["STEM", "Women", "Financial Need", "Graduate"],
-    },
-    {
-      id: 3,
-      title: "Renewable Energy Research Fund",
-      organization: "Green Future Alliance",
-      deadline: "Dec 1, 2024",
-      location: "Europe",
-      category: "Research",
-      amount: "$15,000",
-      tags: ["Research", "Renewable Energy", "PhD", "International"],
-    },
-    {
-      id: 4,
-      title: "Software Engineering Internship",
-      organization: "TechCorp Inc.",
-      deadline: "Oct 25, 2024",
-      location: "Remote",
-      category: "Internship",
-      amount: "$3,000/month",
-      tags: ["Software", "Remote", "Paid", "3 months"],
-    },
-    {
-      id: 5,
-      title: "Business Leadership Program",
-      organization: "Global Business Institute",
-      deadline: "Nov 30, 2024",
-      location: "USA",
-      category: "Scholarship",
-      amount: "$20,000",
-      tags: ["Business", "Leadership", "MBA", "Full-time"],
-    },
-  ];
-
-
+  useEffect(() => {
+    telemetry.screen("search");
+  }, []);
+  // Intentionally NO useFocusEffect here: opportunities don't change minute
+  // to minute, so we don't reload every time the tab gets focus. The user
+  // can pull-to-refresh when they want fresh data. New opportunities will
+  // arrive via push notification with a refresh hook in the future.
 
   return (
     <ScreenContainer className="bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 30 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Header */}
         <View className="px-6 py-4">
-          <Text className="text-2xl font-bold text-foreground">Discover Opportunities</Text>
+          <Text className="text-2xl font-bold text-foreground">
+            {t("search.discoverTitle")}
+          </Text>
           <Text className="text-sm text-muted mt-1">
-            Browse {opportunities.length} opportunities tailored for you
+            {status === "ready"
+              ? t("search.browseCount", { count: opportunities.length })
+              : t("search.loading")}
           </Text>
         </View>
 
@@ -95,17 +116,27 @@ export default function SearchScreen() {
               <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
               <TextInput
                 className="flex-1 ml-3 text-base text-foreground"
-                placeholder="Search opportunities..."
+                placeholder={t("search.placeholder")}
                 placeholderTextColor={colors.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                returnKeyType="search"
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <IconSymbol name="xmark" size={18} color={colors.muted} />
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               className="bg-surface rounded-2xl w-12 h-12 items-center justify-center border border-border"
               onPress={() => setShowFilters(!showFilters)}
             >
-              <IconSymbol name="line.3.horizontal.decrease.circle" size={24} color={colors.foreground} />
+              <IconSymbol
+                name="line.3.horizontal.decrease.circle"
+                size={24}
+                color={showFilters ? colors.primary : colors.foreground}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -115,9 +146,13 @@ export default function SearchScreen() {
           <View className="px-6 mb-4">
             <Card>
               <Text className="text-sm font-bold text-foreground mb-3">Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-4"
+              >
                 <View className="flex-row gap-2">
-                  {categories.map((cat) => (
+                  {CATEGORIES.map((cat) => (
                     <TouchableOpacity
                       key={cat}
                       onPress={() => setSelectedCategory(cat)}
@@ -127,7 +162,9 @@ export default function SearchScreen() {
                     >
                       <Text
                         className={`text-sm font-semibold ${
-                          selectedCategory === cat ? "text-surface" : "text-foreground"
+                          selectedCategory === cat
+                            ? "text-surface"
+                            : "text-foreground"
                         }`}
                       >
                         {cat}
@@ -138,19 +175,23 @@ export default function SearchScreen() {
               </ScrollView>
 
               <Text className="text-sm font-bold text-foreground mb-3">Location</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-4"
+              >
                 <View className="flex-row gap-2">
-                  {locations.map((loc) => (
+                  {REGIONS.map((loc) => (
                     <TouchableOpacity
                       key={loc}
-                      onPress={() => setSelectedLocation(loc)}
+                      onPress={() => setSelectedRegion(loc)}
                       className={`px-4 py-2 rounded-full ${
-                        selectedLocation === loc ? "bg-primary" : "bg-background"
+                        selectedRegion === loc ? "bg-primary" : "bg-background"
                       }`}
                     >
                       <Text
                         className={`text-sm font-semibold ${
-                          selectedLocation === loc ? "text-surface" : "text-foreground"
+                          selectedRegion === loc ? "text-surface" : "text-foreground"
                         }`}
                       >
                         {loc}
@@ -163,7 +204,7 @@ export default function SearchScreen() {
               <Text className="text-sm font-bold text-foreground mb-3">Deadline</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View className="flex-row gap-2">
-                  {deadlines.map((deadline) => (
+                  {DEADLINES.map((deadline) => (
                     <TouchableOpacity
                       key={deadline}
                       onPress={() => setSelectedDeadline(deadline)}
@@ -173,7 +214,9 @@ export default function SearchScreen() {
                     >
                       <Text
                         className={`text-sm font-semibold ${
-                          selectedDeadline === deadline ? "text-surface" : "text-foreground"
+                          selectedDeadline === deadline
+                            ? "text-surface"
+                            : "text-foreground"
                         }`}
                       >
                         {deadline}
@@ -186,51 +229,46 @@ export default function SearchScreen() {
           </View>
         )}
 
-        {/* Opportunities Catalog */}
+        {/* List */}
         <View className="px-6">
-          {opportunities.map((opp) => (
-            <TouchableOpacity key={opp.id} className="mb-4">
-              <Card>
-                <View className="flex-row items-start justify-between mb-2">
-                  <View className="flex-1">
-                    <Text className="text-lg font-bold text-foreground mb-1">{opp.title}</Text>
-                    <Text className="text-sm text-muted mb-2">{opp.organization}</Text>
-                  </View>
-                  <Tag label={opp.category} variant="primary" />
-                </View>
-
-                <View className="flex-row items-center gap-4 mb-3">
-                  <View className="flex-row items-center gap-1">
-                    <IconSymbol name="calendar" size={16} color={colors.muted} />
-                    <Text className="text-xs text-muted">{opp.deadline}</Text>
-                  </View>
-                  <View className="flex-row items-center gap-1">
-                    <IconSymbol name="magnifyingglass" size={16} color={colors.muted} />
-                    <Text className="text-xs text-muted">{opp.location}</Text>
-                  </View>
-                  <Text className="text-xs font-bold text-primary">{opp.amount}</Text>
-                </View>
-
-                {/* Tags */}
-                <View className="flex-row flex-wrap gap-2 mb-3">
-                  {opp.tags.slice(0, 3).map((tag, index) => (
-                    <Tag key={index} label={tag} />
-                  ))}
-                  {opp.tags.length > 3 && (
-                    <Tag label={`+${opp.tags.length - 3} more`} variant="default" />
-                  )}
-                </View>
-
-                <TouchableOpacity className="bg-primary rounded-full py-3 items-center">
-                  <Text className="text-surface font-semibold">View Details</Text>
-                </TouchableOpacity>
-              </Card>
-            </TouchableOpacity>
-          ))}
+          {status === "loading" && opportunities.length === 0 ? (
+            <View className="py-12 items-center">
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : status === "error" ? (
+            <Card className="p-6 items-center">
+              <IconSymbol
+                name="exclamationmark.triangle"
+                size={32}
+                color={colors.error}
+              />
+              <Text className="text-foreground mt-3 text-center">{error}</Text>
+              <TouchableOpacity
+                className="mt-4 bg-primary rounded-full px-5 py-2"
+                onPress={reload}
+              >
+                <Text className="text-surface font-semibold">Try again</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : opportunities.length === 0 ? (
+            <Card className="p-6 items-center">
+              <IconSymbol name="doc" size={40} color={colors.muted} />
+              <Text className="text-muted mt-3 text-center">
+                {t("search.noMatch")}
+              </Text>
+            </Card>
+          ) : (
+            opportunities.map((opp) => (
+              <OpportunityCard
+                key={opp.id}
+                opportunity={opp}
+                applied={appliedIds.has(opp.id)}
+                onPress={() => router.push(`/opportunities/${opp.id}` as any)}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
-
-
     </ScreenContainer>
   );
 }

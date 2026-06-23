@@ -1,350 +1,234 @@
-import { ScrollView, Text, View, TextInput, TouchableOpacity, Image, Modal, Alert } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  Alert,
+  Platform,
+  Dimensions,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import Pdf from "react-native-pdf";
+import { telemetry } from "@/lib/telemetry";
 
-type Document = {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
+type SavedDoc = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  createdAt: number;
 };
 
-export default function WritingHubScreen() {
-  const colors = useColors();
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
-  const [showNewDocModal, setShowNewDocModal] = useState(false);
-  const [newDocTitle, setNewDocTitle] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+const DOC_DIR = `${FileSystem.documentDirectory}documents/`;
 
-  // Load documents from storage
-  const loadDocuments = useCallback(async () => {
-    try {
-      const stored = await AsyncStorage.getItem("writingDocuments");
-      if (stored) {
-        const docs = JSON.parse(stored);
-        setDocuments(docs);
-        setSelectedDoc((prev) => {
-          if (docs.length > 0 && !prev) return docs[0];
-          return prev;
-        });
-      }
-    } catch (error) {
-      console.error("Error loading documents:", error);
-    }
+async function ensureDocDir() {
+  const info = await FileSystem.getInfoAsync(DOC_DIR);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(DOC_DIR, { intermediates: true });
+  }
+}
+
+async function listDocs(): Promise<SavedDoc[]> {
+  await ensureDocDir();
+  const files = await FileSystem.readDirectoryAsync(DOC_DIR);
+  const docs = await Promise.all(
+    files.map(async (f) => {
+      const uri = `${DOC_DIR}${f}`;
+      const info = await FileSystem.getInfoAsync(uri);
+      const ext = f.split(".").pop()?.toLowerCase() ?? "";
+      return {
+        uri,
+        name: f,
+        mimeType: ext === "pdf" ? "application/pdf" : ext,
+        createdAt:
+          info.exists && "modificationTime" in info ? info.modificationTime * 1000 : 0,
+      } as SavedDoc;
+    }),
+  );
+  return docs.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function isPdf(doc: SavedDoc) {
+  return doc.mimeType === "application/pdf" || doc.name.toLowerCase().endsWith(".pdf");
+}
+
+export default function DocumentReaderScreen() {
+  const colors = useColors();
+  const [docs, setDocs] = useState<SavedDoc[]>([]);
+  const [openDoc, setOpenDoc] = useState<SavedDoc | null>(null);
+
+  useEffect(() => {
+    telemetry.screen("document_reader");
+    listDocs().then(setDocs).catch(() => {});
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadDocuments();
-    }, [loadDocuments])
-  );
-
-  const createNewDocument = async () => {
-    if (!newDocTitle.trim()) {
-      Alert.alert("Error", "Please enter a document title");
-      return;
-    }
-
-    const newDoc: Document = {
-      id: Date.now().toString(),
-      title: newDocTitle,
-      content: "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedDocs = [newDoc, ...documents];
-    setDocuments(updatedDocs);
-    setSelectedDoc(newDoc);
-    setIsEditing(true);
-
+  const pickDocument = async () => {
     try {
-      await AsyncStorage.setItem("writingDocuments", JSON.stringify(updatedDocs));
-    } catch (error) {
-      console.error("Error saving document:", error);
-    }
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
 
-    setNewDocTitle("");
-    setShowNewDocModal(false);
-  };
+      const asset = result.assets[0];
+      await ensureDocDir();
+      const safeName = asset.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const dest = `${DOC_DIR}${Date.now()}_${safeName}`;
+      await FileSystem.copyAsync({ from: asset.uri, to: dest });
 
-  const updateDocument = async (content: string) => {
-    if (!selectedDoc) return;
-
-    const updatedDoc = {
-      ...selectedDoc,
-      content,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedDocs = documents.map((doc) =>
-      doc.id === selectedDoc.id ? updatedDoc : doc
-    );
-
-    setDocuments(updatedDocs);
-    setSelectedDoc(updatedDoc);
-
-    try {
-      await AsyncStorage.setItem("writingDocuments", JSON.stringify(updatedDocs));
-    } catch (error) {
-      console.error("Error updating document:", error);
+      const updated = await listDocs();
+      setDocs(updated);
+      telemetry.event("document_opened", {
+        type: asset.name.split(".").pop()?.toLowerCase() ?? "unknown",
+      });
+    } catch (err) {
+      console.warn("[docs] pick failed", err);
+      Alert.alert("Could not open document", "Something went wrong picking the file.");
     }
   };
 
-  const updateTitle = async (title: string) => {
-    if (!selectedDoc) return;
-
-    const updatedDoc = {
-      ...selectedDoc,
-      title,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedDocs = documents.map((doc) =>
-      doc.id === selectedDoc.id ? updatedDoc : doc
-    );
-
-    setDocuments(updatedDocs);
-    setSelectedDoc(updatedDoc);
-
-    try {
-      await AsyncStorage.setItem("writingDocuments", JSON.stringify(updatedDocs));
-    } catch (error) {
-      console.error("Error updating title:", error);
-    }
+  const removeDoc = (doc: SavedDoc) => {
+    Alert.alert("Remove document", `Remove "${doc.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await FileSystem.deleteAsync(doc.uri, { idempotent: true });
+            setDocs((prev) => prev.filter((d) => d.uri !== doc.uri));
+            if (openDoc?.uri === doc.uri) setOpenDoc(null);
+          } catch (err) {
+            console.warn("[docs] delete failed", err);
+          }
+        },
+      },
+    ]);
   };
 
-  const wordCount = selectedDoc?.content.trim()
-    ? selectedDoc.content.trim().split(/\s+/).length
-    : 0;
-
-  // Filter documents based on search query
-  const filteredDocuments = documents.filter((doc) => {
-    const query = searchQuery.toLowerCase();
+  // Viewer mode
+  if (openDoc) {
     return (
-      doc.title.toLowerCase().includes(query) ||
-      doc.content.toLowerCase().includes(query)
-    );
-  });
+      <ScreenContainer className="bg-background">
+        <View className="flex-row items-center justify-between px-6 py-4">
+          <TouchableOpacity onPress={() => setOpenDoc(null)} className="flex-row items-center gap-2">
+            <IconSymbol name="chevron.left" size={24} color={colors.foreground} />
+            <Text className="text-foreground font-semibold">Back</Text>
+          </TouchableOpacity>
+          <Text className="text-foreground font-semibold flex-1 text-center" numberOfLines={1}>
+            {openDoc.name}
+          </Text>
+          <View className="w-16" />
+        </View>
 
+        {isPdf(openDoc) && Platform.OS !== "web" ? (
+          <Pdf
+            source={{ uri: openDoc.uri }}
+            style={{
+              flex: 1,
+              width: Dimensions.get("window").width,
+              backgroundColor: colors.background,
+            }}
+            onError={(err) => {
+              console.warn("[docs] pdf render error", err);
+              Alert.alert("Cannot display PDF", "This file could not be rendered.");
+            }}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center px-6">
+            <IconSymbol name="doc" size={64} color={colors.muted} />
+            <Text className="text-muted mt-3 text-center">
+              {Platform.OS === "web"
+                ? "Document preview is only available on the mobile app."
+                : "Preview for this file type isn't supported yet. Only PDF preview is available."}
+            </Text>
+          </View>
+        )}
+      </ScreenContainer>
+    );
+  }
+
+  // List mode
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <View className="flex-row items-center gap-3">
             <TouchableOpacity onPress={() => router.back()}>
               <IconSymbol name="xmark" size={24} color={colors.foreground} />
             </TouchableOpacity>
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/natta_icon.png")}
               style={{ width: 100, height: 28 }}
               resizeMode="contain"
             />
           </View>
-          <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
-            <Text className="text-primary font-semibold">
-              {isEditing ? "Done" : "Edit"}
-            </Text>
+        </View>
+
+        <View className="px-6 mb-4">
+          <Text className="text-3xl font-bold text-foreground mb-2">Documents</Text>
+          <Text className="text-base text-muted">Open and read your PDFs and documents</Text>
+        </View>
+
+        <View className="px-6 mb-6">
+          <TouchableOpacity
+            className="bg-primary rounded-2xl py-4 flex-row items-center justify-center gap-2"
+            onPress={pickDocument}
+          >
+            <IconSymbol name="plus" size={20} color={colors.surface} />
+            <Text className="text-surface font-bold text-base">Open a document</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Documents List or Editor */}
-        {!isEditing && documents.length > 0 ? (
-          <View className="px-6">
-            <Text className="text-xl font-bold text-foreground mb-4">My Documents</Text>
-            
-            {/* Search Bar */}
-            <View className="mb-4">
-              <Card>
-                <View className="flex-row items-center gap-3">
-                  <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
-                  <TextInput
-                    className="flex-1 text-base text-foreground"
-                    placeholder="Search documents..."
-                    placeholderTextColor={colors.muted}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery("")}>
-                      <IconSymbol name="xmark" size={18} color={colors.muted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </Card>
-            </View>
-
-            {filteredDocuments.length === 0 ? (
-              <Card>
-                <Text className="text-center text-muted">
-                  No documents found matching &quot;{searchQuery}&quot;
-                </Text>
-              </Card>
-            ) : (
-              filteredDocuments.map((doc) => (
-                <TouchableOpacity
-                  key={doc.id}
-                  onPress={() => {
-                    setSelectedDoc(doc);
-                    setIsEditing(true);
-                  }}
-                  className="mb-3"
-                >
-                  <Card>
-                    <Text className="text-base font-bold text-foreground mb-1">
-                      {doc.title}
-                    </Text>
-                    <Text className="text-sm text-muted mb-2" numberOfLines={2}>
-                      {doc.content || "Empty document"}
-                    </Text>
-                    <Text className="text-xs text-muted">
-                      Updated: {new Date(doc.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </Card>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        ) : isEditing && selectedDoc ? (
-          <>
-            {/* Title Card */}
-            <View className="px-6 mb-4">
-              <Card>
-                <TextInput
-                  className="text-lg font-bold text-foreground"
-                  value={selectedDoc.title}
-                  onChangeText={updateTitle}
-                  placeholder="Document Title"
-                  placeholderTextColor={colors.muted}
-                />
-              </Card>
-            </View>
-
-            {/* Editor */}
-            <View className="px-6 mb-4">
-              <Card className="min-h-[400px]">
-                <TextInput
-                  className="text-base text-foreground leading-6"
-                  value={selectedDoc.content}
-                  onChangeText={updateDocument}
-                  placeholder="Start writing your essay..."
-                  placeholderTextColor={colors.muted}
-                  multiline
-                  textAlignVertical="top"
-                />
-              </Card>
-            </View>
-
-            {/* AI Suggestions Button */}
-            <View className="px-6 mb-4">
-              <TouchableOpacity className="bg-primary rounded-2xl py-4 flex-row items-center justify-center gap-2">
-                <IconSymbol name="sparkles" size={20} color={colors.surface} />
-                <Text className="text-surface font-bold text-base">Get AI Suggestions</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Toolbar */}
-            <View className="px-6">
-              <Card>
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row gap-4">
-                    <TouchableOpacity>
-                      <Text className="text-foreground font-bold text-lg">B</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity>
-                      <Text className="text-foreground italic text-lg">I</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity>
-                      <Text className="text-foreground underline text-lg">U</Text>
+        <View className="px-6">
+          {docs.length === 0 ? (
+            <Card className="p-6 items-center">
+              <IconSymbol name="doc" size={48} color={colors.muted} />
+              <Text className="text-muted mt-3 text-center">
+                No documents yet. Tap &quot;Open a document&quot; to add one.
+              </Text>
+            </Card>
+          ) : (
+            docs.map((doc) => (
+              <TouchableOpacity key={doc.uri} className="mb-3" onPress={() => setOpenDoc(doc)}>
+                <Card>
+                  <View className="flex-row items-center gap-4">
+                    <View className="w-12 h-12 bg-background rounded-xl items-center justify-center">
+                      <IconSymbol
+                        name={isPdf(doc) ? "doc.fill" : "doc"}
+                        size={24}
+                        color={colors.primary}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
+                        {doc.name}
+                      </Text>
+                      <Text className="text-sm text-muted">
+                        {new Date(doc.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      className="w-10 h-10 bg-background rounded-full items-center justify-center"
+                      onPress={() => removeDoc(doc)}
+                    >
+                      <IconSymbol name="trash" size={18} color={colors.error} />
                     </TouchableOpacity>
                   </View>
-
-                  <Text className="text-sm text-muted">{wordCount} words</Text>
-                </View>
-              </Card>
-            </View>
-          </>
-        ) : (
-          <View className="px-6 items-center justify-center" style={{ minHeight: 400 }}>
-            <IconSymbol name="doc" size={64} color={colors.muted} />
-            <Text className="text-lg font-semibold text-foreground mt-4 mb-2">
-              No Documents Yet
-            </Text>
-            <Text className="text-sm text-muted text-center mb-6">
-              Create your first writing document to get started
-            </Text>
-            <TouchableOpacity
-              className="bg-primary rounded-full px-6 py-3"
-              onPress={() => setShowNewDocModal(true)}
-            >
-              <Text className="text-surface font-semibold">Create Document</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* FAB - Create New Document */}
-      {documents.length > 0 && (
-        <TouchableOpacity
-          className="absolute bottom-8 right-8 bg-primary w-14 h-14 rounded-full items-center justify-center shadow-lg"
-          onPress={() => setShowNewDocModal(true)}
-        >
-          <IconSymbol name="plus" size={24} color={colors.surface} />
-        </TouchableOpacity>
-      )}
-
-      {/* New Document Modal */}
-      <Modal visible={showNewDocModal} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View
-            className="bg-surface rounded-2xl p-6 w-full max-w-sm"
-            style={{ backgroundColor: colors.surface }}
-          >
-            <Text className="text-xl font-bold text-foreground mb-4">New Document</Text>
-
-            <TextInput
-              className="bg-background rounded-lg px-4 py-3 text-foreground mb-4"
-              style={{ backgroundColor: colors.background, color: colors.foreground }}
-              placeholder="Document title"
-              placeholderTextColor={colors.muted}
-              value={newDocTitle}
-              onChangeText={setNewDocTitle}
-              autoFocus
-            />
-
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => {
-                  setShowNewDocModal(false);
-                  setNewDocTitle("");
-                }}
-                className="flex-1 bg-background rounded-lg py-3 items-center"
-                style={{ backgroundColor: colors.background }}
-              >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                </Card>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={createNewDocument}
-                className="flex-1 rounded-lg py-3 items-center"
-                style={{ backgroundColor: colors.primary }}
-              >
-                <Text className="text-white font-semibold">Create</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            ))
+          )}
         </View>
-      </Modal>
+      </ScrollView>
     </ScreenContainer>
   );
 }

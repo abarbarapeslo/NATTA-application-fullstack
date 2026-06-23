@@ -1,121 +1,141 @@
-import { ScrollView, Text, View, TouchableOpacity, Image, Modal, TextInput } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Pressable,
+  Image,
+  Modal,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+} from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { ScreenContainer } from "@/components/screen-container";
 import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useState, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useEffect, useState } from "react";
+import { router } from "expo-router";
+import { useFirebaseUser, nicknameFromUser, notifyUserProfileChanged } from "@/hooks/use-firebase-user";
+import { useTranslation } from "@/hooks/use-locale";
+import { translateApplicationStatus } from "@/lib/i18n";
+import { useApplications } from "@/hooks/use-applications";
+import { telemetry } from "@/lib/telemetry";
+import { formatDeadline } from "@/lib/opportunity-format";
+import { OpportunityDetailView } from "@/components/opportunity-detail-view";
+import { opportunities as nattaOpportunities } from "@/lib/natta-api";
+import type {
+  ApplicationStatus,
+  ApplicationWithDetails,
+  Opportunity,
+} from "@/types/natta-router";
 
-type Application = {
-  id: string;
-  name: string;
-  deadline: string;
-  status: "Draft" | "In Progress" | "Submitted" | "Accepted" | "Rejected";
-  type: string;
-  startDate?: string;
-  endDate?: string;
-};
+const STATUSES: ApplicationStatus[] = [
+  "Applied",
+  "In Progress",
+  "Accepted",
+  "Rejected",
+];
 
 export default function HomeScreen() {
   const colors = useColors();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
-  
-  // Form state
-  const [name, setName] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [status, setStatus] = useState<Application["status"]>("Draft");
-  const [type, setType] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const { t, locale } = useTranslation();
+  const firebaseUser = useFirebaseUser();
+  const nickname = nicknameFromUser(firebaseUser);
 
-  // Load applications from storage
-  const loadApplications = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("applications");
-      if (stored) {
-        setApplications(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error("Error loading applications:", error);
-    }
-  };
+  const {
+    applications,
+    stats,
+    status,
+    refreshing,
+    error,
+    reload,
+    refresh,
+    silentRefresh,
+    updateStatus,
+    removeApplication,
+  } = useApplications();
 
-  // Load on focus
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<ApplicationWithDetails | null>(null);
+  // Fetched on demand when the application from the API came back without
+  // a nested opportunity (no join on the backend side).
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
+  const [loadingOpp, setLoadingOpp] = useState(false);
+
+  useEffect(() => {
+    telemetry.screen("home");
+  }, []);
+
+  // Silent refresh on focus: applications may have changed in the detail
+  // screen (Mark as applied / Unmark). No spinner — UI stays still.
   useFocusEffect(
     useCallback(() => {
-      loadApplications();
-    }, [])
+      notifyUserProfileChanged();
+      silentRefresh();
+    }, [silentRefresh]),
   );
 
-  const saveApplication = async () => {
-    if (!name || !deadline || !type) {
-      return;
-    }
-
-    const newApplication: Application = {
-      id: Date.now().toString(),
-      name,
-      deadline,
-      status,
-      type,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    };
-
-    const updatedApplications = [...applications, newApplication];
-    setApplications(updatedApplications);
-    
-    try {
-      await AsyncStorage.setItem("applications", JSON.stringify(updatedApplications));
-    } catch (error) {
-      console.error("Error saving application:", error);
-    }
-
-    // Reset form
-    setName("");
-    setDeadline("");
-    setStatus("Draft");
-    setType("");
-    setStartDate("");
-    setEndDate("");
-    setModalVisible(false);
-  };
-
-  const openEditModal = (app: Application) => {
+  const openEdit = (app: ApplicationWithDetails) => {
     setSelectedApp(app);
-    setEditModalVisible(true);
+    setEditOpen(true);
+    // The list endpoint returns a flat subset of the opportunity (title,
+    // organizer, deadline, type). For the full detail view inside the
+    // modal we still need description/requirements/benefits/link, so we
+    // fetch the complete opportunity on demand.
+    setSelectedOpp(null);
+    setLoadingOpp(true);
+    nattaOpportunities
+      .getById(app.opportunityId)
+      .then((opp) => {
+        setSelectedOpp(opp ?? null);
+      })
+      .catch((err) => {
+        console.warn("[home] could not load opportunity for app", app.id, err);
+      })
+      .finally(() => setLoadingOpp(false));
   };
 
-  const updateApplicationStatus = async (newStatus: Application["status"]) => {
+  const setNewStatus = async (s: ApplicationStatus) => {
     if (!selectedApp) return;
-
-    const updatedApplications = applications.map(app => 
-      app.id === selectedApp.id ? { ...app, status: newStatus } : app
-    );
-    
-    setApplications(updatedApplications);
-    
     try {
-      await AsyncStorage.setItem("applications", JSON.stringify(updatedApplications));
-    } catch (error) {
-      console.error("Error updating application:", error);
+      await updateStatus(selectedApp.id, s);
+      setEditOpen(false);
+      setSelectedApp(null);
+    } catch (err: any) {
+      Alert.alert(t("home.couldNotUpdateStatus"), err?.message ?? t("common.tryAgain"));
     }
-
-    setEditModalVisible(false);
-    setSelectedApp(null);
   };
 
-  const getStatusColor = (status: Application["status"]) => {
-    switch (status) {
-      case "Draft":
-        return colors.muted;
+  const confirmRemove = (app: ApplicationWithDetails) => {
+    Alert.alert(
+      t("home.removeApplicationTitle"),
+      t("home.removeApplicationMessage", { title: app.title }),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("home.removeApplication"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeApplication(app.id);
+              setEditOpen(false);
+              setSelectedApp(null);
+            } catch (err: any) {
+              Alert.alert(t("home.couldNotRemove"), err?.message ?? t("common.tryAgain"));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const statusColor = (s: ApplicationStatus) => {
+    switch (s) {
       case "In Progress":
         return colors.primary;
-      case "Submitted":
+      case "Applied":
         return colors.warning;
       case "Accepted":
         return colors.success;
@@ -126,307 +146,250 @@ export default function HomeScreen() {
     }
   };
 
-  const inProgressCount = applications.filter(app => app.status === "In Progress").length;
-  const submittedCount = applications.filter(app => app.status === "Submitted").length;
-
   return (
     <ScreenContainer className="bg-background">
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <Image
-            source={require("@/assets/images/logo.png")}
+            source={require("@/assets/images/natta_icon.png")}
             style={{ width: 120, height: 32 }}
             resizeMode="contain"
           />
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/notifications-settings" as any)}>
             <IconSymbol name="bell" size={24} color={colors.foreground} />
           </TouchableOpacity>
         </View>
 
         {/* Welcome */}
         <View className="px-6 mb-6">
-          <Text className="text-3xl font-bold text-foreground">Welcome back, Giulia</Text>
+          <Text className="text-3xl font-bold text-foreground">
+            {nickname ? t("home.welcomeNamed", { name: nickname }) : t("home.welcome")}
+          </Text>
         </View>
 
         {/* Metrics */}
-        <View className="flex-row px-6 mb-6 gap-3">
+        <View className="flex-row px-6 mb-3 gap-3">
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">Applications in Progress</Text>
-            <Text className="text-3xl font-bold text-foreground">{inProgressCount}</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.inProgress")}</Text>
+            <Text className="text-3xl font-bold text-foreground">
+              {stats.inProgress}
+            </Text>
           </Card>
-
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">Upcoming Deadlines</Text>
-            <Text className="text-3xl font-bold text-foreground">3</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.applied")}</Text>
+            <Text className="text-3xl font-bold text-foreground">{stats.applied}</Text>
           </Card>
         </View>
-
-        <View className="px-6 mb-6">
-          <Card className="p-4">
-            <Text className="text-sm text-muted mb-1">Submitted</Text>
-            <Text className="text-3xl font-bold text-foreground">{submittedCount}</Text>
+        <View className="flex-row px-6 mb-6 gap-3">
+          <Card className="flex-1 p-4">
+            <Text className="text-sm text-muted mb-1">{t("home.accepted")}</Text>
+            <Text className="text-3xl font-bold text-foreground">{stats.accepted}</Text>
+          </Card>
+          <Card className="flex-1 p-4">
+            <Text className="text-sm text-muted mb-1">{t("home.rejected")}</Text>
+            <Text className="text-3xl font-bold text-foreground">{stats.rejected}</Text>
           </Card>
         </View>
 
         {/* Applications List */}
         <View className="px-6">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-xl font-bold text-foreground">Your Applications</Text>
-            <TouchableOpacity 
+            <Text className="text-xl font-bold text-foreground">{t("home.yourApplications")}</Text>
+            <TouchableOpacity
               className="bg-primary rounded-full px-4 py-2"
-              onPress={() => setModalVisible(true)}
+              onPress={() => router.push("/(tabs)/search" as any)}
             >
-              <Text className="text-surface font-semibold text-sm">+ New</Text>
+              <Text className="text-surface font-semibold text-sm">
+                {t("home.browseOpportunities")}
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {applications.length === 0 ? (
+          {status === "loading" && applications.length === 0 ? (
+            <View className="py-12 items-center">
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text className="text-muted mt-3">{t("home.loadingApplications")}</Text>
+            </View>
+          ) : status === "error" ? (
+            <Card className="p-6 items-center">
+              <IconSymbol name="exclamationmark.triangle" size={32} color={colors.error} />
+              <Text className="text-foreground mt-3 text-center">{error}</Text>
+              <TouchableOpacity
+                className="mt-4 bg-primary rounded-full px-5 py-2"
+                onPress={reload}
+              >
+                <Text className="text-surface font-semibold">{t("common.tryAgain")}</Text>
+              </TouchableOpacity>
+            </Card>
+          ) : applications.length === 0 ? (
             <Card className="p-6 items-center">
               <IconSymbol name="doc" size={48} color={colors.muted} />
               <Text className="text-muted mt-3 text-center">
-                No applications yet. Tap &quot;+ New&quot; to create your first application.
+                {t("home.noApplications")}
               </Text>
             </Card>
           ) : (
             applications.map((app) => (
-              <TouchableOpacity key={app.id} className="mb-3" onPress={() => openEditModal(app)}>
-                <Card className="p-4">
-                  <View className="flex-row items-start justify-between mb-3">
-                    <View className="flex-1">
-                      <Text className="text-lg font-bold text-foreground mb-1">
-                        {app.name}
-                      </Text>
-                      <Text className="text-sm text-muted mb-2">
-                        {app.type}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm text-muted">
-                      Deadline: {app.deadline}
-                    </Text>
-                    <View 
-                      className="rounded-full px-3 py-1"
-                      style={{ backgroundColor: `${getStatusColor(app.status)}20` }}
-                    >
-                      <Text 
-                        className="text-xs font-semibold"
-                        style={{ color: getStatusColor(app.status) }}
+              <View key={app.id} className="mb-3">
+                <Pressable
+                  onPress={() => openEdit(app)}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.6 : 1,
+                    borderRadius: 12,
+                  })}
+                >
+                  <Card className="p-4">
+                    <View className="flex-row items-start justify-between mb-2">
+                      <View className="flex-1 pr-3">
+                        <Text className="text-lg font-bold text-foreground mb-1">
+                          {app.title}
+                        </Text>
+                        {app.organizer && (
+                          <Text className="text-sm text-muted">
+                            {app.organizer}
+                          </Text>
+                        )}
+                      </View>
+                      <View
+                        className="rounded-full px-3 py-1"
+                        style={{
+                          backgroundColor: `${statusColor(app.status)}20`,
+                        }}
                       >
-                        {app.status}
-                      </Text>
+                        <Text
+                          className="text-xs font-semibold"
+                          style={{ color: statusColor(app.status) }}
+                        >
+                          {translateApplicationStatus(locale, app.status)}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
+                    <Text className="text-xs text-muted">
+                      {t("home.deadline")}: {formatDeadline(app.deadline)}
+                    </Text>
+                  </Card>
+                </Pressable>
+              </View>
             ))
           )}
         </View>
       </ScrollView>
 
-      {/* Add Application Modal */}
+      {/* Application Detail Modal — full-screen view of the underlying
+          opportunity + status/remove actions for the application.
+          Rendered conditionally so that when closed it doesn't sit in the
+          tree intercepting Android touches. */}
+      {editOpen && (
       <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        animationType="slide"
+        transparent={false}
+        visible={true}
+        onRequestClose={() => setEditOpen(false)}
       >
-        <View className="flex-1 justify-center items-center bg-black/50 px-6">
-          <View className="bg-background rounded-2xl w-full max-w-md" style={{ maxHeight: "85%" }}>
-            {/* Header */}
-            <View className="flex-row items-center justify-between p-6 pb-4 border-b border-border">
-              <Text className="text-xl font-bold text-foreground">New Application</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text className="text-2xl text-muted">×</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 32 }}>
+          <View className="flex-row items-center justify-between px-6 py-4 border-b border-border">
+            <TouchableOpacity
+              onPress={() => setEditOpen(false)}
+              className="flex-row items-center gap-2"
+            >
+              <IconSymbol name="xmark" size={22} color={colors.foreground} />
+              <Text className="text-foreground font-semibold">{t("common.close")}</Text>
+            </TouchableOpacity>
+            <Text className="text-foreground font-semibold">{t("home.application")}</Text>
+            <View className="w-16" />
+          </View>
 
-            <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
-              {/* Name */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  Application Name *
-                </Text>
-                <TextInput
-                  className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground"
-                  placeholder="e.g., Harvard University - Computer Science"
-                  placeholderTextColor={colors.muted}
-                  value={name}
-                  onChangeText={setName}
-                />
+          {selectedApp ? (
+            <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <View className="px-6 pt-4 pb-2">
+                <View
+                  className="self-start rounded-full px-3 py-1 mb-3"
+                  style={{
+                    backgroundColor: `${statusColor(selectedApp.status)}20`,
+                  }}
+                >
+                  <Text
+                    className="text-xs font-semibold"
+                    style={{ color: statusColor(selectedApp.status) }}
+                  >
+                    {translateApplicationStatus(locale, selectedApp.status)}
+                  </Text>
+                </View>
               </View>
 
-              {/* Type/Area */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  Type/Area *
-                </Text>
-                <TextInput
-                  className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground"
-                  placeholder="e.g., Scholarship, Internship, Job, Research"
-                  placeholderTextColor={colors.muted}
-                  value={type}
-                  onChangeText={setType}
-                />
-              </View>
+              {selectedOpp ? (
+                <OpportunityDetailView opportunity={selectedOpp} />
+              ) : loadingOpp ? (
+                <View className="py-10 items-center">
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text className="text-muted mt-3">{t("home.loadingOpportunity")}</Text>
+                </View>
+              ) : (
+                <View className="py-10 items-center px-6">
+                  <Text className="text-muted text-center">
+                    {t("home.couldNotLoadOpportunity")}
+                  </Text>
+                </View>
+              )}
 
-              {/* Deadline */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  Deadline *
+              {/* Status management */}
+              <View className="px-6 mt-4">
+                <Text className="text-base font-bold text-foreground mb-3">
+                  {t("home.updateStatus")}
                 </Text>
-                <TextInput
-                  className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground"
-                  placeholder="e.g., Oct 25, 2024"
-                  placeholderTextColor={colors.muted}
-                  value={deadline}
-                  onChangeText={setDeadline}
-                />
-              </View>
-
-              {/* Start Date */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  Start Date (optional)
-                </Text>
-                <TextInput
-                  className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground"
-                  placeholder="e.g., Jan 15, 2025"
-                  placeholderTextColor={colors.muted}
-                  value={startDate}
-                  onChangeText={setStartDate}
-                />
-              </View>
-
-              {/* End Date */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  End Date (optional)
-                </Text>
-                <TextInput
-                  className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground"
-                  placeholder="e.g., Jun 15, 2025"
-                  placeholderTextColor={colors.muted}
-                  value={endDate}
-                  onChangeText={setEndDate}
-                />
-              </View>
-
-              {/* Status */}
-              <View className="mb-6">
-                <Text className="text-sm font-semibold text-foreground mb-2">
-                  Status
-                </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {(["Draft", "In Progress", "Submitted", "Accepted", "Rejected"] as const).map((s) => (
+                <View className="gap-2">
+                  {STATUSES.map((s) => (
                     <TouchableOpacity
                       key={s}
-                      className={`rounded-full px-4 py-2 ${
-                        status === s ? "bg-primary" : "bg-surface border border-border"
+                      className={`rounded-lg px-4 py-3 border ${
+                        selectedApp.status === s
+                          ? "bg-primary border-primary"
+                          : "bg-surface border-border"
                       }`}
-                      onPress={() => setStatus(s)}
+                      onPress={() => setNewStatus(s)}
                     >
                       <Text
-                        className={`text-sm font-semibold ${
-                          status === s ? "text-white" : "text-foreground"
+                        className={`text-base font-semibold ${
+                          selectedApp.status === s
+                            ? "text-white"
+                            : "text-foreground"
                         }`}
                       >
-                        {s}
+                        {translateApplicationStatus(locale, s)}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
 
+                <TouchableOpacity
+                  className="bg-surface border border-border rounded-full py-3 items-center mt-4"
+                  onPress={() => confirmRemove(selectedApp)}
+                >
+                  <Text className="text-error font-semibold">
+                    {t("home.removeApplication")}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
-
-            {/* Footer Buttons */}
-            <View className="p-6 pt-4 border-t border-border gap-3">
-              <TouchableOpacity
-                className="bg-primary rounded-full py-3 items-center"
-                onPress={saveApplication}
-              >
-                <Text className="text-surface font-bold text-base">Save Application</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                className="bg-surface border border-border rounded-full py-3 items-center"
-                onPress={() => setModalVisible(false)}
-              >
-                <Text className="text-foreground font-semibold text-base">Cancel</Text>
-              </TouchableOpacity>
+          ) : (
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-muted">{t("home.noApplicationSelected")}</Text>
             </View>
-          </View>
+          )}
         </View>
       </Modal>
-
-      {/* Edit Status Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black/50 px-6">
-          <View className="bg-background rounded-2xl w-full max-w-md p-6">
-            {/* Header */}
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-bold text-foreground">Update Status</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Text className="text-2xl text-muted">×</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Application Info */}
-            {selectedApp && (
-              <View className="mb-6">
-                <Text className="text-base font-bold text-foreground mb-1">
-                  {selectedApp.name}
-                </Text>
-                <Text className="text-sm text-muted">
-                  {selectedApp.type} • Deadline: {selectedApp.deadline}
-                </Text>
-              </View>
-            )}
-
-            {/* Status Options */}
-            <View className="mb-6">
-              <Text className="text-sm font-semibold text-foreground mb-3">
-                Select New Status
-              </Text>
-              <View className="gap-2">
-                {(["Draft", "In Progress", "Submitted", "Accepted", "Rejected"] as const).map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    className={`rounded-lg px-4 py-3 border ${
-                      selectedApp?.status === s ? "bg-primary border-primary" : "bg-surface border-border"
-                    }`}
-                    onPress={() => updateApplicationStatus(s)}
-                  >
-                    <Text
-                      className={`text-base font-semibold ${
-                        selectedApp?.status === s ? "text-surface" : "text-foreground"
-                      }`}
-                    >
-                      {s}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Cancel Button */}
-            <TouchableOpacity
-              className="bg-surface border border-border rounded-full py-3 items-center"
-              onPress={() => setEditModalVisible(false)}
-            >
-              <Text className="text-foreground font-semibold text-base">Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      )}
     </ScreenContainer>
   );
 }
