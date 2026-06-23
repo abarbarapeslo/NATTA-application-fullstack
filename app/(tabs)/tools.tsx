@@ -4,31 +4,33 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { router } from "expo-router";
+import { useTranslation } from "@/hooks/use-locale";
 
 export default function ToolsScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
 
   const tools = [
     {
       id: 1,
-      name: "Video Space",
-      description: "Record application videos with teleprompter",
+      name: t("tools.videoSpace"),
+      description: t("tools.videoSpaceDesc"),
       icon: "video" as const,
       route: "/video-space",
       color: colors.primary,
     },
     {
       id: 2,
-      name: "Resume Assistant",
-      description: "Write essays, cover letters and CV text with AI",
+      name: t("tools.resumeAssistant"),
+      description: t("tools.resumeAssistantDesc"),
       icon: "doc" as const,
       route: "/resume-assistant",
       color: colors.primary,
     },
     {
       id: 3,
-      name: "Document Reader",
-      description: "Open and read your documents",
+      name: t("tools.documentReader"),
+      description: t("tools.documentReaderDesc"),
       icon: "pencil" as const,
       route: "/writing-hub",
       color: colors.primary,
@@ -38,7 +40,6 @@ export default function ToolsScreen() {
   return (
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-4">
           <Image
             source={require("@/assets/images/natta_icon.png")}
@@ -47,15 +48,11 @@ export default function ToolsScreen() {
           />
         </View>
 
-        {/* Title */}
         <View className="px-6 mb-6">
-          <Text className="text-3xl font-bold text-foreground mb-2">Tools</Text>
-          <Text className="text-base text-muted">
-            Access all Natta tools to enhance your application process
-          </Text>
+          <Text className="text-3xl font-bold text-foreground mb-2">{t("tools.title")}</Text>
+          <Text className="text-base text-muted">{t("tools.subtitle")}</Text>
         </View>
 
-        {/* Tools Grid */}
         <View className="px-6">
           {tools.map((tool) => (
             <TouchableOpacity
@@ -72,9 +69,7 @@ export default function ToolsScreen() {
                     <IconSymbol name={tool.icon} size={24} color={tool.color} />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-base font-semibold text-foreground mb-1">
-                      {tool.name}
-                    </Text>
+                    <Text className="text-base font-semibold text-foreground mb-1">{tool.name}</Text>
                     <Text className="text-sm text-muted">{tool.description}</Text>
                   </View>
                   <IconSymbol name="chevron.right" size={20} color={colors.muted} />

@@ -40,18 +40,18 @@ describe("Natta - Applications Feature", () => {
   });
 
   it("guides users to browse opportunities instead of manual creation", () => {
-    expect(dashboardContent).toContain("Browse opportunities");
+    expect(dashboardContent).toContain("home.browseOpportunities");
     expect(dashboardContent).not.toContain("saveApplication");
   });
 
   it("displays an empty state when there are no applications", () => {
-    expect(dashboardContent).toContain("No applications yet");
+    expect(dashboardContent).toContain("home.noApplications");
     expect(dashboardContent).toContain("applications.length === 0");
   });
 
   it("supports editing status and removing an application", () => {
     expect(dashboardContent).toContain("updateStatus");
     expect(dashboardContent).toContain("removeApplication");
-    expect(dashboardContent).toContain("Update status");
+    expect(dashboardContent).toContain("home.updateStatus");
   });
 });

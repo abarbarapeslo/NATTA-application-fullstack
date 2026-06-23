@@ -22,36 +22,37 @@ import {
   GoogleSignInCancelledError,
 } from "@/lib/google-signin";
 import { telemetry } from "@/lib/telemetry";
+import { useTranslation } from "@/hooks/use-locale";
+import type { TranslationKey } from "@/lib/i18n";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function friendlyAuthError(code: string | undefined, fallback: string): string {
+function friendlyAuthError(
+  code: string | undefined,
+  t: (key: TranslationKey) => string,
+): string {
   switch (code) {
     case "auth/invalid-email":
-      return "The email address is not valid.";
+      return t("auth.error.invalidEmail");
     case "auth/user-disabled":
-      return "This account has been disabled. Please contact support.";
+      return t("auth.error.userDisabled");
     case "auth/user-not-found":
     case "auth/wrong-password":
     case "auth/invalid-credential":
-      return "Incorrect email or password.";
+      return t("auth.error.wrongPassword");
     case "auth/too-many-requests":
-      return "Too many attempts. Please wait a moment and try again.";
+      return t("auth.error.tooManyRequests");
     case "auth/email-already-in-use":
-      return "An account with this email already exists.";
+      return t("auth.error.emailInUse");
     case "auth/weak-password":
-      return "Password is too weak. Try a longer one.";
+      return t("auth.error.weakPassword");
     case "auth/network-request-failed":
-      return "Network error. Check your connection and try again.";
+      return t("auth.error.network");
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
-      return "Sign-in was cancelled.";
-    case "auth/popup-blocked":
-      return "Your browser blocked the sign-in popup. Allow popups and try again.";
-    case "auth/account-exists-with-different-credential":
-      return "An account already exists with this email using a different sign-in method.";
+      return t("auth.error.cancelled");
     default:
-      return fallback || "Something went wrong. Please try again.";
+      return t("auth.error.generic");
   }
 }
 
@@ -65,6 +66,7 @@ function notify(title: string, message: string) {
 
 export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const colors = useColors();
+  const { t } = useTranslation();
   const isSignUp = mode === "signup";
   const [email, setEmail] = useState("");
   const [emailTouched, setEmailTouched] = useState(false);
@@ -84,8 +86,8 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
   const ensureConfigured = () => {
     if (!isFirebaseConfigured()) {
       notify(
-        "Firebase not configured",
-        "Firebase failed to initialize. Make sure google-services.json / GoogleService-Info.plist are present and rebuild the app.",
+        t("auth.firebaseNotConfigured"),
+        t("auth.firebaseNotConfiguredMessage"),
       );
       return false;
     }
@@ -94,11 +96,11 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      notify("Error", "Please fill in all fields");
+      notify(t("common.error"), t("auth.fillAllFields"));
       return;
     }
     if (!EMAIL_REGEX.test(email)) {
-      notify("Error", "Please enter a valid email address");
+      notify(t("common.error"), t("auth.invalidEmail"));
       return;
     }
     if (!ensureConfigured()) return;
@@ -110,7 +112,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       router.replace("/(tabs)");
     } catch (error: any) {
       telemetry.event("login_failed", { method: "password", code: error?.code ?? "unknown" });
-      notify("Sign In Failed", friendlyAuthError(error?.code, error?.message));
+      notify(t("auth.signInFailed"), friendlyAuthError(error?.code, t));
     } finally {
       setLoading(false);
     }
@@ -118,27 +120,27 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword || !name) {
-      notify("Error", "Please fill in all fields");
+      notify(t("common.error"), t("auth.fillAllFields"));
       return;
     }
     if (!EMAIL_REGEX.test(email)) {
-      notify("Error", "Please enter a valid email address");
+      notify(t("common.error"), t("auth.invalidEmail"));
       return;
     }
     if (password !== confirmPassword) {
-      notify("Error", "Passwords do not match");
+      notify(t("common.error"), t("auth.passwordMismatch"));
       return;
     }
     if (password.length < 6) {
-      notify("Error", "Password must be at least 6 characters");
+      notify(t("common.error"), t("auth.passwordMinLength"));
       return;
     }
     if (!/[A-Z]/.test(password)) {
-      notify("Error", "Password must contain at least one uppercase letter");
+      notify(t("common.error"), t("auth.passwordUppercase"));
       return;
     }
     if (!/[^A-Za-z0-9]/.test(password)) {
-      notify("Error", "Password must contain at least one special character");
+      notify(t("common.error"), t("auth.passwordSpecial"));
       return;
     }
     if (!ensureConfigured()) return;
@@ -157,12 +159,12 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
       }
       telemetry.event("signup_success", { method: "password" });
       notify(
-        "Verify your email",
-        `We sent a verification link to ${email}. Please check your inbox to confirm your account.`,
+        t("auth.verifyEmailTitle"),
+        t("auth.verifyEmailMessage", { email }),
       );
       router.replace("/(tabs)");
     } catch (error: any) {
-      notify("Sign Up Failed", friendlyAuthError(error?.code, error?.message));
+      notify(t("auth.signUpFailed"), friendlyAuthError(error?.code, t));
     } finally {
       setLoading(false);
     }
@@ -170,15 +172,15 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      notify("Error", "Please enter your email address");
+      notify(t("common.error"), t("auth.invalidEmail"));
       return;
     }
     if (!ensureConfigured()) return;
     try {
       await getFirebaseAuth().sendPasswordResetEmail(email);
-      notify("Success", "Password reset email sent! Check your inbox.");
+      notify(t("common.success"), t("auth.resetEmailSent"));
     } catch (error: any) {
-      notify("Error", friendlyAuthError(error?.code, error?.message));
+      notify(t("common.error"), friendlyAuthError(error?.code, t));
     }
   };
 
@@ -195,7 +197,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
         return;
       }
       telemetry.event("login_failed", { method: "google", code: error?.code ?? "unknown" });
-      notify("Google Sign-In Failed", friendlyAuthError(error?.code, error?.message));
+      notify(t("auth.googleSignInFailed"), friendlyAuthError(error?.code, t));
     } finally {
       setLoading(false);
     }
@@ -221,12 +223,10 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               resizeMode="contain"
             />
             <Text className="text-3xl font-bold text-foreground mt-8">
-              {isSignUp ? "Create Account" : "Welcome Back"}
+              {isSignUp ? t("auth.signUpTitle") : t("auth.signInTitle")}
             </Text>
             <Text className="text-base text-muted mt-2 text-center">
-              {isSignUp
-                ? "Sign up to start your application journey"
-                : "Sign in to continue to NATTA"}
+              {isSignUp ? t("auth.signUpSubtitle") : t("auth.signInSubtitle")}
             </Text>
           </View>
 
@@ -235,11 +235,11 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               {isSignUp && (
                 <View className="mb-4">
                   <Text className="text-sm font-semibold text-foreground mb-2">
-                    Full Name
+                    {t("auth.nickname")}
                   </Text>
                   <TextInput
                     className="bg-surface text-foreground px-4 py-3 rounded-lg border border-border"
-                    placeholder="Enter your name"
+                    placeholder={t("auth.nicknamePlaceholder")}
                     placeholderTextColor={colors.muted}
                     value={name}
                     onChangeText={setName}
@@ -253,12 +253,12 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
               <View className="mb-4">
                 <Text className="text-sm font-semibold text-foreground mb-2">
-                  Email
+                  {t("auth.email")}
                 </Text>
                 <TextInput
                   ref={emailRef}
                   className={`bg-surface text-foreground px-4 py-3 rounded-lg border ${emailBorder}`}
-                  placeholder="Enter your email"
+                  placeholder={t("auth.emailPlaceholder")}
                   placeholderTextColor={colors.muted}
                   value={email}
                   onChangeText={setEmail}
@@ -272,20 +272,20 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                 />
                 {emailInvalid && (
                   <Text className="text-xs text-red-500 mt-2">
-                    Please enter a valid email address.
+                    {t("auth.invalidEmail")}
                   </Text>
                 )}
               </View>
 
               <View className="mb-4">
                 <Text className="text-sm font-semibold text-foreground mb-2">
-                  Password
+                  {t("auth.password")}
                 </Text>
                 <View className="relative">
                   <TextInput
                     ref={passwordRef}
                     className="bg-surface text-foreground px-4 py-3 pr-12 rounded-lg border border-border"
-                    placeholder="Enter your password"
+                    placeholder={t("auth.passwordPlaceholder")}
                     placeholderTextColor={colors.muted}
                     value={password}
                     onChangeText={setPassword}
@@ -321,7 +321,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                 </View>
                 {isSignUp && (
                   <Text className="text-xs text-muted mt-2">
-                    At least 6 characters, one uppercase letter and one special character.
+                    {t("auth.passwordHint")}
                   </Text>
                 )}
               </View>
@@ -329,13 +329,13 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               {isSignUp && (
                 <View className="mb-4">
                   <Text className="text-sm font-semibold text-foreground mb-2">
-                    Confirm Password
+                    {t("auth.confirmPassword")}
                   </Text>
                   <View className="relative">
                     <TextInput
                       ref={confirmRef}
                       className="bg-surface text-foreground px-4 py-3 pr-12 rounded-lg border border-border"
-                      placeholder="Confirm your password"
+                      placeholder={t("auth.confirmPasswordPlaceholder")}
                       placeholderTextColor={colors.muted}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -368,7 +368,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               {!isSignUp && (
                 <TouchableOpacity onPress={handleForgotPassword} className="mb-4">
                   <Text className="text-primary text-sm text-right">
-                    Forgot Password?
+                    {t("auth.forgotPassword")}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -380,7 +380,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                 style={{ opacity: loading ? 0.6 : 1 }}
               >
                 <Text className="text-white font-bold text-base">
-                  {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+                  {loading ? t("auth.loading") : isSignUp ? t("auth.signUp") : t("auth.signIn")}
                 </Text>
               </TouchableOpacity>
 
@@ -406,7 +406,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
 
               <View className="flex-row items-center my-2">
                 <View className="flex-1 h-px bg-border" />
-                <Text className="text-muted text-xs mx-3">OR</Text>
+                <Text className="text-muted text-xs mx-3">{t("auth.or")}</Text>
                 <View className="flex-1 h-px bg-border" />
               </View>
 
@@ -418,15 +418,13 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
               >
                 <FontAwesome name="google" size={18} color={colors.foreground} />
                 <Text className="text-foreground font-semibold ml-3">
-                  Continue with Google
+                  {t("auth.continueGoogle")}
                 </Text>
               </TouchableOpacity>
 
               <View className="flex-row items-center justify-center">
                 <Text className="text-muted text-sm">
-                  {isSignUp
-                    ? "Already have an account? "
-                    : "Don't have an account? "}
+                  {isSignUp ? t("auth.hasAccount") + " " : t("auth.noAccount") + " "}
                 </Text>
                 <TouchableOpacity
                   onPress={() =>
@@ -436,7 +434,7 @@ export function AuthForm({ mode }: { mode: "signin" | "signup" }) {
                   }
                 >
                   <Text className="text-primary font-semibold text-sm">
-                    {isSignUp ? "Sign In" : "Sign Up"}
+                    {isSignUp ? t("auth.signIn") : t("auth.signUp")}
                   </Text>
                 </TouchableOpacity>
               </View>

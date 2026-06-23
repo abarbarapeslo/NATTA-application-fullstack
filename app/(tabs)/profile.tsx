@@ -14,13 +14,17 @@ import { Card } from "@/components/ui/card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { Tag } from "@/components/ui/tag";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useUserProfile } from "@/hooks/use-user-profile";
+import { notifyUserProfileChanged } from "@/hooks/use-firebase-user";
+import { useTranslation } from "@/hooks/use-locale";
 import { telemetry } from "@/lib/telemetry";
 
 export default function ProfileScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const {
     profile,
     education,
@@ -32,7 +36,16 @@ export default function ProfileScreen() {
     addEducation,
     addExperience,
     addProject,
+    removeEducation,
+    removeExperience,
+    removeProject,
   } = useUserProfile();
+
+  useFocusEffect(
+    useCallback(() => {
+      notifyUserProfileChanged();
+    }, []),
+  );
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -201,6 +214,22 @@ export default function ProfileScreen() {
     setShowEditProject(false);
   };
 
+  const confirmDelete = (
+    labelKey: "profile.entryEducation" | "profile.entryExperience" | "profile.entryProject",
+    onConfirm: () => Promise<void>,
+  ) => {
+    Alert.alert(t("profile.removeEntryTitle"), t("profile.removeEntryMessage", { label: t(labelKey) }), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: () => {
+          onConfirm().catch(() => Alert.alert(t("common.error"), t("profile.removeFailed")));
+        },
+      },
+    ]);
+  };
+
   const handleEditInterests = () => {
     setEditInterestsText(profile.interests.join(", "));
     setShowEditInterests(true);
@@ -230,7 +259,7 @@ export default function ProfileScreen() {
             resizeMode="contain"
           />
           <TouchableOpacity className="bg-primary rounded-full px-4 py-2" onPress={handleEditBasicInfo}>
-            <Text className="text-surface font-semibold text-sm">Edit Profile</Text>
+            <Text className="text-surface font-semibold text-sm">{t("profile.editProfile")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -284,16 +313,26 @@ export default function ProfileScreen() {
           {/* Education Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Education</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.education")}</Text>
               <TouchableOpacity onPress={handleAddEducation}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
             {education.map((edu) => (
               <Card key={edu.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{edu.institution}</Text>
-                <Text className="text-sm text-muted mt-1">{edu.degree}</Text>
-                <Text className="text-xs text-muted mt-1">{edu.period}</Text>
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{edu.institution}</Text>
+                    <Text className="text-sm text-muted mt-1">{edu.degree}</Text>
+                    <Text className="text-xs text-muted mt-1">{edu.period}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryEducation", () => removeEducation(edu.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
+                </View>
               </Card>
             ))}
           </View>
@@ -301,17 +340,27 @@ export default function ProfileScreen() {
           {/* Experience Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Experience</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.experience")}</Text>
               <TouchableOpacity onPress={handleAddExperience}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
             {experience.map((exp) => (
               <Card key={exp.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{exp.title}</Text>
-                <Text className="text-sm text-muted mt-1">{exp.company}</Text>
-                <Text className="text-xs text-muted mt-1">{exp.period}</Text>
-                <Text className="text-sm text-foreground mt-2">{exp.description}</Text>
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{exp.title}</Text>
+                    <Text className="text-sm text-muted mt-1">{exp.company}</Text>
+                    <Text className="text-xs text-muted mt-1">{exp.period}</Text>
+                    <Text className="text-sm text-foreground mt-2">{exp.description}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryExperience", () => removeExperience(exp.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
+                </View>
               </Card>
             ))}
           </View>
@@ -319,19 +368,29 @@ export default function ProfileScreen() {
           {/* Projects Section */}
           <View>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-foreground">Projects</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.projects")}</Text>
               <TouchableOpacity onPress={handleAddProject}>
                 <IconSymbol name="plus" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
             {projects.map((proj) => (
               <Card key={proj.id} className="mb-3 p-4">
-                <Text className="text-base font-semibold text-foreground">{proj.title}</Text>
-                <Text className="text-sm text-foreground mt-2">{proj.description}</Text>
-                <View className="flex-row flex-wrap gap-2 mt-3">
-                  {proj.tags.map((tag, idx) => (
-                    <Tag key={idx} label={tag} />
-                  ))}
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-semibold text-foreground">{proj.title}</Text>
+                    <Text className="text-sm text-foreground mt-2">{proj.description}</Text>
+                    <View className="flex-row flex-wrap gap-2 mt-3">
+                      {proj.tags.map((tag, idx) => (
+                        <Tag key={idx} label={tag} />
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete("profile.entryProject", () => removeProject(proj.id!))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.muted} />
+                  </TouchableOpacity>
                 </View>
               </Card>
             ))}
@@ -341,7 +400,7 @@ export default function ProfileScreen() {
           <View>
             <View className="flex-row items-center justify-between mb-3">
               <Text className="text-lg font-bold text-foreground">
-                Skills &amp; Interests
+                {t("profile.skillsInterests")}
               </Text>
               <TouchableOpacity onPress={handleEditInterests}>
                 <IconSymbol name="pencil" size={24} color={colors.primary} />
@@ -367,10 +426,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Edit Profile</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.editProfile")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editTitle}
@@ -378,7 +437,7 @@ export default function ProfileScreen() {
                 placeholder="Your title"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Bio</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.bio")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editBio}
@@ -393,13 +452,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditBasic(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveBasicInfo}
               >
-                <Text className="text-surface font-semibold">Save</Text>
+                <Text className="text-surface font-semibold">{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -411,10 +470,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Education</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addEducation")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Institution</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.institution")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduInstitution}
@@ -422,7 +481,7 @@ export default function ProfileScreen() {
                 placeholder="University name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Degree</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.degree")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduDegree}
@@ -430,7 +489,7 @@ export default function ProfileScreen() {
                 placeholder="Bachelor of..."
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Period</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.period")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editEduPeriod}
@@ -444,13 +503,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditEducation(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveEducation}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -462,10 +521,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Experience</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addExperience")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpTitle}
@@ -473,7 +532,7 @@ export default function ProfileScreen() {
                 placeholder="Job title"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Company</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.company")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpCompany}
@@ -481,7 +540,7 @@ export default function ProfileScreen() {
                 placeholder="Company name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Period</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.period")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpPeriod}
@@ -489,7 +548,7 @@ export default function ProfileScreen() {
                 placeholder="Jun 2022 - Dec 2022"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Description</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.description")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editExpDescription}
@@ -504,13 +563,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditExperience(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveExperience}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -522,10 +581,10 @@ export default function ProfileScreen() {
         <View className="flex-1 bg-black/50 items-center justify-center">
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
-              <Text className="text-lg font-bold text-foreground">Add Project</Text>
+              <Text className="text-lg font-bold text-foreground">{t("profile.addProject")}</Text>
             </View>
             <ScrollView className="px-6 py-4">
-              <Text className="text-sm font-semibold text-foreground mb-2">Title</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.title")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjTitle}
@@ -533,7 +592,7 @@ export default function ProfileScreen() {
                 placeholder="Project name"
                 placeholderTextColor={colors.muted}
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Description</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.description")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjDescription}
@@ -542,7 +601,7 @@ export default function ProfileScreen() {
                 placeholderTextColor={colors.muted}
                 multiline
               />
-              <Text className="text-sm font-semibold text-foreground mb-2">Tags (comma separated)</Text>
+              <Text className="text-sm font-semibold text-foreground mb-2">{t("profile.tagsPlaceholder")}</Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-4"
                 value={editProjTags}
@@ -556,13 +615,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditProject(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveProject}
               >
-                <Text className="text-surface font-semibold">Add</Text>
+                <Text className="text-surface font-semibold">{t("common.add")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -575,12 +634,12 @@ export default function ProfileScreen() {
           <View className="bg-background rounded-3xl w-11/12 max-h-[80%]">
             <View className="px-6 py-4 border-b border-border">
               <Text className="text-lg font-bold text-foreground">
-                Edit Skills &amp; Interests
+                {t("profile.editSkillsInterests")}
               </Text>
             </View>
             <ScrollView className="px-6 py-4">
               <Text className="text-sm font-semibold text-foreground mb-2">
-                Skills &amp; interests (comma separated)
+                {t("profile.skillsInterestsPlaceholder")}
               </Text>
               <TextInput
                 className="bg-surface rounded-2xl px-4 py-3 text-foreground mb-2"
@@ -599,13 +658,13 @@ export default function ProfileScreen() {
                 className="flex-1 bg-surface rounded-2xl py-3 items-center"
                 onPress={() => setShowEditInterests(false)}
               >
-                <Text className="text-foreground font-semibold">Cancel</Text>
+                <Text className="text-foreground font-semibold">{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 bg-primary rounded-2xl py-3 items-center"
                 onPress={handleSaveInterests}
               >
-                <Text className="text-surface font-semibold">Save</Text>
+                <Text className="text-surface font-semibold">{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>

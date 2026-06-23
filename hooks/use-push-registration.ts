@@ -2,33 +2,23 @@ import { useEffect } from "react";
 import { Alert } from "react-native";
 import {
   getFcmToken,
+  getInitialNotification,
   onForegroundMessage,
   onNotificationOpenedApp,
   onTokenRefresh,
   requestNotificationPermission,
 } from "@/lib/push-notifications";
+import { navigateFromPushNotification } from "@/lib/push-navigation";
+import { registerDeviceToken } from "@/lib/push-register";
 import { useFirebaseUser } from "@/hooks/use-firebase-user";
-
-/**
- * Stub: replace with a real backend call once `server/` exposes an endpoint
- * that stores {uid, fcmToken, platform} for later targeted push from the
- * backend. Until then we just log so we can verify the token in dev.
- */
-async function registerTokenWithBackend(uid: string, token: string) {
-  console.log("[push] would register token with backend", {
-    uid,
-    token: token.slice(0, 20) + "...",
-  });
-}
 
 /**
  * Wires up push notifications for the currently signed-in user:
  * - asks for permission on first sign-in
- * - sends the FCM token to the backend
+ * - sends the FCM token to the NATTA backend
  * - listens for token refreshes
- * - shows foreground messages as a simple alert (replace with in-app toast
- *   when one is available)
- * - logs taps on notifications opened from background
+ * - shows foreground messages as a simple alert
+ * - opens the opportunity screen when the user taps a notification
  *
  * Mount once near the root (e.g. inside AuthGuard after auth succeeds).
  */
@@ -45,11 +35,15 @@ export function usePushRegistration() {
       if (!granted || cancelled) return;
       const token = await getFcmToken();
       if (!token || cancelled) return;
-      await registerTokenWithBackend(uid, token);
+      try {
+        await registerDeviceToken(token);
+      } catch (err) {
+        console.warn("[push] register token failed", err);
+      }
     })();
 
     const unsubRefresh = onTokenRefresh((token) => {
-      registerTokenWithBackend(uid, token).catch((err) =>
+      registerDeviceToken(token).catch((err) =>
         console.warn("[push] register refreshed token failed", err),
       );
     });
@@ -61,15 +55,24 @@ export function usePushRegistration() {
   }, [uid]);
 
   useEffect(() => {
+    getInitialNotification().then((msg) => {
+      if (msg) navigateFromPushNotification(msg);
+    });
+
     const unsubForeground = onForegroundMessage((msg) => {
       const title = msg.notification?.title ?? "Notification";
       const body = msg.notification?.body ?? "";
-      // Lightweight surfacing for now; swap for an in-app toast later.
-      Alert.alert(title, body);
+      Alert.alert(title, body, [
+        { text: "Dismiss", style: "cancel" },
+        {
+          text: "Open",
+          onPress: () => navigateFromPushNotification(msg),
+        },
+      ]);
     });
 
     const unsubOpenedApp = onNotificationOpenedApp((msg) => {
-      console.log("[push] opened app from background notification", msg.data);
+      navigateFromPushNotification(msg);
     });
 
     return () => {

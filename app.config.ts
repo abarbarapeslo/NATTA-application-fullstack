@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   slug: env.appSlug,
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/images/natta_app_icon.png",
+  icon: "./assets/images/logo-app.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
@@ -44,8 +44,8 @@ const config: ExpoConfig = {
     // Bump each Play upload (integer)
     versionCode: 1,
     adaptiveIcon: {
-      backgroundColor: "#E6F4FE",
-      foregroundImage: "./assets/images/natta_icon.png",
+      backgroundColor: "#2E5EFE",
+      foregroundImage: "./assets/images/logo-app.png",
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,

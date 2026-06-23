@@ -22,7 +22,7 @@ import {
   type CameraType,
 } from "expo-camera";
 import * as FileSystem from "expo-file-system/legacy";
-import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
+import { useFirebaseUser, nicknameFromUser } from "@/hooks/use-firebase-user";
 import { telemetry } from "@/lib/telemetry";
 
 type RecordedVideo = {
@@ -62,7 +62,7 @@ async function listRecordedVideos(): Promise<RecordedVideo[]> {
 export default function VideoSpaceScreen() {
   const colors = useColors();
   const firebaseUser = useFirebaseUser();
-  const firstName = firstNameFromUser(firebaseUser) || "there";
+  const nickname = nicknameFromUser(firebaseUser) || "there";
 
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -74,7 +74,7 @@ export default function VideoSpaceScreen() {
 
   const [scriptModal, setScriptModal] = useState(false);
   const [script, setScript] = useState(
-    `Hello, my name is ${firstName} and I'm excited to introduce myself.`,
+    `Hello, my name is ${nickname} and I'm excited to introduce myself.`,
   );
 
   useEffect(() => {

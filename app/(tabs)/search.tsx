@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOpportunities } from "@/hooks/use-opportunities";
 import { useApplications } from "@/hooks/use-applications";
 import { telemetry } from "@/lib/telemetry";
+import { useTranslation } from "@/hooks/use-locale";
 import type { OpportunityFilters } from "@/types/natta-router";
 
 const CATEGORIES = ["All", "Scholarship", "Internship", "Job", "Grant", "Research"];
@@ -47,6 +48,7 @@ function deadlineLabelToDate(label: string | null): Date | undefined {
 
 export default function SearchScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>("All");
@@ -98,12 +100,12 @@ export default function SearchScreen() {
         {/* Header */}
         <View className="px-6 py-4">
           <Text className="text-2xl font-bold text-foreground">
-            Discover Opportunities
+            {t("search.discoverTitle")}
           </Text>
           <Text className="text-sm text-muted mt-1">
             {status === "ready"
-              ? `Browse ${opportunities.length} opportunities tailored for you`
-              : "Loading opportunities..."}
+              ? t("search.browseCount", { count: opportunities.length })
+              : t("search.loading")}
           </Text>
         </View>
 
@@ -114,7 +116,7 @@ export default function SearchScreen() {
               <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
               <TextInput
                 className="flex-1 ml-3 text-base text-foreground"
-                placeholder="Search opportunities..."
+                placeholder={t("search.placeholder")}
                 placeholderTextColor={colors.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -252,7 +254,7 @@ export default function SearchScreen() {
             <Card className="p-6 items-center">
               <IconSymbol name="doc" size={40} color={colors.muted} />
               <Text className="text-muted mt-3 text-center">
-                No opportunities match your filters.
+                {t("search.noMatch")}
               </Text>
             </Card>
           ) : (

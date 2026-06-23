@@ -106,6 +106,10 @@ export const auth = {
   updateProfile: (input: { bio?: string; interests?: string[] }) =>
     call<typeof input, { success: true }>("auth.updateProfile", "mutation", input),
   applicationStats: () => call<void, ApplicationStats>("auth.applicationStats", "query"),
+  registerDevice: (input: { fcmToken: string; platform: "android" | "ios" | "web" }) =>
+    call<typeof input, { success: true }>("auth.registerDevice", "mutation", input),
+  unregisterDevice: (input: { fcmToken: string }) =>
+    call<typeof input, { success: true }>("auth.unregisterDevice", "mutation", input),
 };
 
 // --- opportunities ----------------------------------------------------------

@@ -42,6 +42,7 @@ const MAPPING = {
   "eye": "visibility",
   "eye.slash": "visibility-off",
   "camera.fill": "photo-camera",
+  "trash": "delete",
 } as IconMapping;
 
 /**

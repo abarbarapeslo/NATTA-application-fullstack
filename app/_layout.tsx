@@ -19,6 +19,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { AuthGuard } from "@/components/auth-guard";
+import { LocaleProvider } from "@/hooks/use-locale";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -80,18 +81,20 @@ export default function RootLayout() {
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
-        <AuthGuard>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="auth/login" />
-            <Stack.Screen name="auth/signup" />
-            <Stack.Screen name="opportunities" />
-            <Stack.Screen name="legal/terms" />
-            <Stack.Screen name="legal/privacy" />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
-          <StatusBar style="auto" />
-        </AuthGuard>
+        <LocaleProvider>
+          <AuthGuard>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="auth/login" />
+              <Stack.Screen name="auth/signup" />
+              <Stack.Screen name="opportunities" />
+              <Stack.Screen name="legal/terms" />
+              <Stack.Screen name="legal/privacy" />
+              <Stack.Screen name="oauth/callback" />
+            </Stack>
+            <StatusBar style="auto" />
+          </AuthGuard>
+        </LocaleProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

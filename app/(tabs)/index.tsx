@@ -17,7 +17,9 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
-import { useFirebaseUser, firstNameFromUser } from "@/hooks/use-firebase-user";
+import { useFirebaseUser, nicknameFromUser, notifyUserProfileChanged } from "@/hooks/use-firebase-user";
+import { useTranslation } from "@/hooks/use-locale";
+import { translateApplicationStatus } from "@/lib/i18n";
 import { useApplications } from "@/hooks/use-applications";
 import { telemetry } from "@/lib/telemetry";
 import { formatDeadline } from "@/lib/opportunity-format";
@@ -38,8 +40,9 @@ const STATUSES: ApplicationStatus[] = [
 
 export default function HomeScreen() {
   const colors = useColors();
+  const { t, locale } = useTranslation();
   const firebaseUser = useFirebaseUser();
-  const firstName = firstNameFromUser(firebaseUser);
+  const nickname = nicknameFromUser(firebaseUser);
 
   const {
     applications,
@@ -69,6 +72,7 @@ export default function HomeScreen() {
   // screen (Mark as applied / Unmark). No spinner — UI stays still.
   useFocusEffect(
     useCallback(() => {
+      notifyUserProfileChanged();
       silentRefresh();
     }, [silentRefresh]),
   );
@@ -100,18 +104,18 @@ export default function HomeScreen() {
       setEditOpen(false);
       setSelectedApp(null);
     } catch (err: any) {
-      Alert.alert("Could not update status", err?.message ?? "Try again.");
+      Alert.alert(t("home.couldNotUpdateStatus"), err?.message ?? t("common.tryAgain"));
     }
   };
 
   const confirmRemove = (app: ApplicationWithDetails) => {
     Alert.alert(
-      "Remove application",
-      `Remove your application to ${app.title}?`,
+      t("home.removeApplicationTitle"),
+      t("home.removeApplicationMessage", { title: app.title }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Remove",
+          text: t("home.removeApplication"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -119,7 +123,7 @@ export default function HomeScreen() {
               setEditOpen(false);
               setSelectedApp(null);
             } catch (err: any) {
-              Alert.alert("Could not remove", err?.message ?? "Try again.");
+              Alert.alert(t("home.couldNotRemove"), err?.message ?? t("common.tryAgain"));
             }
           },
         },
@@ -170,30 +174,30 @@ export default function HomeScreen() {
         {/* Welcome */}
         <View className="px-6 mb-6">
           <Text className="text-3xl font-bold text-foreground">
-            {firstName ? `Welcome back, ${firstName}` : "Welcome back"}
+            {nickname ? t("home.welcomeNamed", { name: nickname }) : t("home.welcome")}
           </Text>
         </View>
 
         {/* Metrics */}
         <View className="flex-row px-6 mb-3 gap-3">
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">In Progress</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.inProgress")}</Text>
             <Text className="text-3xl font-bold text-foreground">
               {stats.inProgress}
             </Text>
           </Card>
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">Applied</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.applied")}</Text>
             <Text className="text-3xl font-bold text-foreground">{stats.applied}</Text>
           </Card>
         </View>
         <View className="flex-row px-6 mb-6 gap-3">
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">Accepted</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.accepted")}</Text>
             <Text className="text-3xl font-bold text-foreground">{stats.accepted}</Text>
           </Card>
           <Card className="flex-1 p-4">
-            <Text className="text-sm text-muted mb-1">Rejected</Text>
+            <Text className="text-sm text-muted mb-1">{t("home.rejected")}</Text>
             <Text className="text-3xl font-bold text-foreground">{stats.rejected}</Text>
           </Card>
         </View>
@@ -201,13 +205,13 @@ export default function HomeScreen() {
         {/* Applications List */}
         <View className="px-6">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-xl font-bold text-foreground">Your Applications</Text>
+            <Text className="text-xl font-bold text-foreground">{t("home.yourApplications")}</Text>
             <TouchableOpacity
               className="bg-primary rounded-full px-4 py-2"
               onPress={() => router.push("/(tabs)/search" as any)}
             >
               <Text className="text-surface font-semibold text-sm">
-                + Browse opportunities
+                {t("home.browseOpportunities")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -215,7 +219,7 @@ export default function HomeScreen() {
           {status === "loading" && applications.length === 0 ? (
             <View className="py-12 items-center">
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text className="text-muted mt-3">Loading your applications...</Text>
+              <Text className="text-muted mt-3">{t("home.loadingApplications")}</Text>
             </View>
           ) : status === "error" ? (
             <Card className="p-6 items-center">
@@ -225,15 +229,14 @@ export default function HomeScreen() {
                 className="mt-4 bg-primary rounded-full px-5 py-2"
                 onPress={reload}
               >
-                <Text className="text-surface font-semibold">Try again</Text>
+                <Text className="text-surface font-semibold">{t("common.tryAgain")}</Text>
               </TouchableOpacity>
             </Card>
           ) : applications.length === 0 ? (
             <Card className="p-6 items-center">
               <IconSymbol name="doc" size={48} color={colors.muted} />
               <Text className="text-muted mt-3 text-center">
-                No applications yet. Tap &quot;Browse opportunities&quot; to find your
-                first one.
+                {t("home.noApplications")}
               </Text>
             </Card>
           ) : (
@@ -268,12 +271,12 @@ export default function HomeScreen() {
                           className="text-xs font-semibold"
                           style={{ color: statusColor(app.status) }}
                         >
-                          {app.status}
+                          {translateApplicationStatus(locale, app.status)}
                         </Text>
                       </View>
                     </View>
                     <Text className="text-xs text-muted">
-                      Deadline: {formatDeadline(app.deadline)}
+                      {t("home.deadline")}: {formatDeadline(app.deadline)}
                     </Text>
                   </Card>
                 </Pressable>
@@ -301,9 +304,9 @@ export default function HomeScreen() {
               className="flex-row items-center gap-2"
             >
               <IconSymbol name="xmark" size={22} color={colors.foreground} />
-              <Text className="text-foreground font-semibold">Close</Text>
+              <Text className="text-foreground font-semibold">{t("common.close")}</Text>
             </TouchableOpacity>
-            <Text className="text-foreground font-semibold">Application</Text>
+            <Text className="text-foreground font-semibold">{t("home.application")}</Text>
             <View className="w-16" />
           </View>
 
@@ -320,7 +323,7 @@ export default function HomeScreen() {
                     className="text-xs font-semibold"
                     style={{ color: statusColor(selectedApp.status) }}
                   >
-                    {selectedApp.status}
+                    {translateApplicationStatus(locale, selectedApp.status)}
                   </Text>
                 </View>
               </View>
@@ -330,12 +333,12 @@ export default function HomeScreen() {
               ) : loadingOpp ? (
                 <View className="py-10 items-center">
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text className="text-muted mt-3">Loading opportunity...</Text>
+                  <Text className="text-muted mt-3">{t("home.loadingOpportunity")}</Text>
                 </View>
               ) : (
                 <View className="py-10 items-center px-6">
                   <Text className="text-muted text-center">
-                    Could not load opportunity details.
+                    {t("home.couldNotLoadOpportunity")}
                   </Text>
                 </View>
               )}
@@ -343,7 +346,7 @@ export default function HomeScreen() {
               {/* Status management */}
               <View className="px-6 mt-4">
                 <Text className="text-base font-bold text-foreground mb-3">
-                  Update status
+                  {t("home.updateStatus")}
                 </Text>
                 <View className="gap-2">
                   {STATUSES.map((s) => (
@@ -363,7 +366,7 @@ export default function HomeScreen() {
                             : "text-foreground"
                         }`}
                       >
-                        {s}
+                        {translateApplicationStatus(locale, s)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -374,14 +377,14 @@ export default function HomeScreen() {
                   onPress={() => confirmRemove(selectedApp)}
                 >
                   <Text className="text-error font-semibold">
-                    Remove application
+                    {t("home.removeApplication")}
                   </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           ) : (
             <View className="flex-1 items-center justify-center">
-              <Text className="text-muted">No application selected.</Text>
+              <Text className="text-muted">{t("home.noApplicationSelected")}</Text>
             </View>
           )}
         </View>

@@ -13,7 +13,7 @@ import {
 } from "@/lib/firestore";
 import {
   useFirebaseUser,
-  displayNameFromUser,
+  nicknameFromUser,
 } from "@/hooks/use-firebase-user";
 import { auth as nattaAuth, NattaApiError } from "@/lib/natta-api";
 import { buildAvatarDataUri } from "@/lib/avatar";
@@ -26,7 +26,7 @@ const MIGRATION_FLAG = "@natta_profile_migrated_to_firestore";
  * What the Profile screen renders.
  *
  * Hybrid data sources:
- * - `name` always comes from Firebase Auth (`displayName`)
+ * - `name` (nickname) always comes from Firebase Auth (`displayName`)
  * - `bio` + `interests` come from the NATTA backend (Postgres, shared with
  *   the website) via `auth.me` / `auth.updateProfile`
  * - `title`, `education`, `experience`, `projects`, `skills` are app-only —
@@ -147,7 +147,7 @@ export function useUserProfile() {
   const firebaseUser = useFirebaseUser();
   const uid = firebaseUser?.uid ?? null;
   const [profile, setProfile] = useState<LoadedProfile>(() =>
-    emptyProfile(displayNameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
+    emptyProfile(nicknameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
   );
   const [extras, setExtras] = useState<ExtraSections>(emptyExtras);
   const [loading, setLoading] = useState(true);
@@ -155,7 +155,7 @@ export function useUserProfile() {
   const reload = useCallback(async () => {
     if (!uid) {
       setProfile(
-        emptyProfile(displayNameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
+        emptyProfile(nicknameFromUser(firebaseUser), firebaseUser?.photoURL ?? ""),
       );
       setExtras(emptyExtras);
       setLoading(false);
@@ -184,7 +184,7 @@ export function useUserProfile() {
       legacySkills = firestoreData.skills ?? [];
       setProfile((prev) => ({
         ...prev,
-        name: displayNameFromUser(firebaseUser),
+        name: nicknameFromUser(firebaseUser),
         title: firestoreData.title ?? "",
         // Firestore wins; fall back to the auth provider photo (e.g. Google).
         photoURL: firestoreData.photoURL ?? firebaseUser?.photoURL ?? "",
@@ -417,7 +417,10 @@ export function useUserProfile() {
   );
 
   return {
-    profile,
+    profile: {
+      ...profile,
+      name: nicknameFromUser(null) || profile.name,
+    },
     education: extras.education,
     experience: extras.experience,
     projects: extras.projects,
